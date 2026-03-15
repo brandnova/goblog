@@ -1,0 +1,67 @@
+{{define "content"}}
+
+<div style="max-width:420px; margin:3rem auto 0;">
+
+    <div style="text-align:center; margin-bottom:2.5rem;">
+        <h2 style="font-size:2rem; font-weight:900; margin:0 0 0.5rem;">Welcome back</h2>
+        <p style="color:var(--ink-muted); font-size:0.95rem; margin:0;">
+            Sign in to your account to continue.
+        </p>
+    </div>
+
+    {{with .Data}}
+        {{if .Success}}
+        <div class="alert-success">{{.Success}}</div>
+        {{end}}
+
+        {{if .Error}}
+        <div class="alert-error">{{.Error}}</div>
+        {{end}}
+    {{end}}
+
+    <form method="POST" action="/login" style="display:flex; flex-direction:column; gap:1.25rem;">
+
+        <div>
+            <label style="display:block; font-family:'JetBrains Mono',monospace; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:0.5rem;">
+                Email
+            </label>
+            <input
+                type="email"
+                name="email"
+                class="field"
+                placeholder="you@example.com"
+                required
+                autocomplete="email"
+            >
+        </div>
+
+        <div>
+            <label style="display:block; font-family:'JetBrains Mono',monospace; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:0.5rem;">
+                Password
+            </label>
+            <input
+                type="password"
+                name="password"
+                class="field"
+                placeholder="••••••••"
+                required
+                autocomplete="current-password"
+            >
+        </div>
+
+        <button type="submit" class="btn-primary" style="width:100%; text-align:center; margin-top:0.5rem;">
+            Sign in
+        </button>
+
+    </form>
+
+    <p style="text-align:center; margin-top:1.75rem; font-size:0.9rem; color:var(--ink-muted);">
+        No account?
+        <a href="/register" style="color:var(--ink); text-decoration:underline; text-underline-offset:3px;">
+            Register here
+        </a>
+    </p>
+
+</div>
+
+{{end}}

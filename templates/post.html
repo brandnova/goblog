@@ -1,0 +1,72 @@
+{{define "content"}}
+{{with .Data}}
+
+<a href="/" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-muted); text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem; transition:color 0.1s; margin-bottom:2.5rem;"
+   onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink-muted)'">
+    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+    All posts
+</a>
+
+{{if .Tags}}
+<div style="margin-bottom:1rem; display:flex; gap:0.4rem; flex-wrap:wrap;">
+    {{range .Tags}}
+    <a href="/tag/{{.Name}}" class="tag-pill">{{.Name}}</a>
+    {{end}}
+</div>
+{{end}}
+
+<h1 style="font-size:clamp(2rem, 5vw, 3rem); font-weight:900; line-height:1.15; color:var(--ink); margin:0 0 1.25rem; max-width:720px;">
+    {{.Title}}
+</h1>
+
+<div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap; padding-bottom:1.5rem; border-bottom:1px solid var(--rule); margin-bottom:2.5rem;">
+    <span style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--ink-soft);">
+        {{.AuthorName}}
+    </span>
+    <span style="color:var(--rule);">·</span>
+    <span style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--ink-muted);">
+        {{.CreatedAt.Format "January 2, 2006"}}
+    </span>
+    <span style="color:var(--rule);">·</span>
+    <span style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--ink-muted);">
+        {{.ReadTime}} min read
+    </span>
+    {{if eq .Status "draft"}}
+    <span class="badge-draft">Draft</span>
+    {{end}}
+</div>
+
+{{if .CoverImage}}
+<div style="margin-bottom:2.5rem; border-radius:3px; overflow:hidden;">
+    <img src="{{.CoverImage}}" alt="Cover image"
+         style="width:100%; max-height:460px; object-fit:cover; display:block;">
+</div>
+{{end}}
+
+<!-- Body rendered from markdown -->
+<div class="prose prose-neutral prose-lg" style="max-width:680px;">
+    {{markdown .Body}}
+</div>
+
+<!-- Edit/delete controls — only for the author -->
+{{if $.User}}
+    {{if eq $.User.ID .UserID}}
+    <div style="margin-top:3.5rem; padding-top:1.5rem; border-top:1px solid var(--rule); display:flex; gap:0.75rem; align-items:center;">
+        <a href="/edit/{{.ID}}" class="btn-ghost">Edit post</a>
+        <button
+            class="btn-danger"
+            hx-post="/delete/{{.ID}}"
+            hx-confirm="Are you sure you want to delete this post? This cannot be undone."
+            hx-target="body"
+            hx-on::after-request="window.location='/'"
+        >
+            Delete
+        </button>
+    </div>
+    {{end}}
+{{end}}
+
+{{end}}
+{{end}}

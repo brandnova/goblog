@@ -1,0 +1,132 @@
+{{define "content"}}
+
+<!-- Page title -->
+<div style="margin-bottom:2.5rem;">
+    <div class="section-rule">
+        {{if .Data}}{{if .Data.Post}}Edit Post{{else}}New Post{{end}}{{else}}New Post{{end}}
+    </div>
+    <h1 style="font-size:2rem; font-weight:900; margin:0;">
+        {{if .Data}}{{if .Data.Post}}Edit "{{.Data.Post.Title}}"{{else}}Write something{{end}}{{else}}Write something{{end}}
+    </h1>
+</div>
+
+<!-- Error banner -->
+{{if .Data}}{{if .Data.Error}}
+<div class="alert-error">{{.Data.Error}}</div>
+{{end}}{{end}}
+
+<form
+    method="POST"
+    enctype="multipart/form-data"
+    style="display:flex; flex-direction:column; gap:1.5rem; max-width:720px;"
+>
+
+    <!-- Title -->
+    <div>
+        <label style="display:block; font-family:'JetBrains Mono',monospace; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:0.5rem;">
+            Title
+        </label>
+        <input
+            type="text"
+            name="title"
+            class="field"
+            style="font-size:1.1rem;"
+            placeholder="Give your post a title…"
+            value="{{if .Data}}{{if .Data.Post}}{{.Data.Post.Title}}{{else}}{{.Data.Title}}{{end}}{{end}}"
+            required
+        >
+    </div>
+
+    <!-- Body -->
+    <div>
+        <label style="display:block; font-family:'JetBrains Mono',monospace; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:0.5rem;">
+            Body
+        </label>
+        <textarea
+            name="body"
+            class="field"
+            rows="18"
+            placeholder="Write your post here… Markdown is supported."
+            style="resize:vertical; line-height:1.75;"
+            required
+        >{{if .Data}}{{if .Data.Post}}{{.Data.Post.Body}}{{else}}{{.Data.Body}}{{end}}{{end}}</textarea>
+        <p style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--ink-muted); margin-top:0.4rem;">
+            Markdown supported — **bold**, *italic*, ## headings, ```code blocks```
+        </p>
+    </div>
+
+    <!-- Tags -->
+    <div>
+        <label style="display:block; font-family:'JetBrains Mono',monospace; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:0.5rem;">
+            Tags
+        </label>
+        <input
+            type="text"
+            name="tags"
+            class="field"
+            placeholder="go, tutorial, web"
+            value="{{if .Data}}{{if .Data.Post}}{{.Data.Tags}}{{end}}{{end}}"
+        >
+        <p style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--ink-muted); margin-top:0.4rem;">
+            Comma-separated. e.g. go, web, tutorial
+        </p>
+    </div>
+
+    <!-- Cover image -->
+    <div>
+        <label style="display:block; font-family:'JetBrains Mono',monospace; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:0.5rem;">
+            Cover Image <span style="font-weight:300; text-transform:none; letter-spacing:0;">(optional)</span>
+        </label>
+
+        {{if .Data}}{{if .Data.Post}}{{if .Data.Post.CoverImage}}
+        <div style="margin-bottom:0.75rem;">
+            <img src="{{.Data.Post.CoverImage}}" alt="Current cover"
+                 style="max-height:140px; border-radius:2px; border:1px solid var(--rule);">
+            <p style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--ink-muted); margin-top:0.3rem;">
+                Current cover. Upload a new file to replace it.
+            </p>
+        </div>
+        {{end}}{{end}}{{end}}
+
+        <input
+            type="file"
+            name="cover_image"
+            accept="image/*"
+            style="font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--ink-soft);"
+        >
+    </div>
+
+    <!-- Status -->
+    <div>
+        <label style="display:block; font-family:'JetBrains Mono',monospace; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:0.5rem;">
+            Status
+        </label>
+        <div style="display:flex; gap:1.5rem;">
+            <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; font-size:0.95rem;">
+                <input type="radio" name="status" value="draft"
+                    {{if .Data}}{{if .Data.Post}}{{if eq .Data.Post.Status "draft"}}checked{{end}}{{else}}checked{{end}}{{else}}checked{{end}}>
+                <span>Draft</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--ink-muted);">— only you can see it</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; font-size:0.95rem;">
+                <input type="radio" name="status" value="published"
+                    {{if .Data}}{{if .Data.Post}}{{if eq .Data.Post.Status "published"}}checked{{end}}{{end}}{{end}}>
+                <span>Published</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--ink-muted);">— visible to everyone</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex; align-items:center; gap:1rem; padding-top:0.5rem;">
+        <button type="submit" class="btn-primary">
+            {{if .Data}}{{if .Data.Post}}Update post{{else}}Publish post{{end}}{{else}}Publish post{{end}}
+        </button>
+        <a href="{{if .Data}}{{if .Data.Post}}/post/{{.Data.Post.Slug}}{{else}}/{{end}}{{else}}/{{end}}" class="btn-ghost">
+            Cancel
+        </a>
+    </div>
+
+</form>
+
+{{end}}

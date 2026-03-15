@@ -1,0 +1,52 @@
+{{define "content"}}
+
+<div style="margin-bottom:2.5rem;">
+    <div class="section-rule">My Posts</div>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h1 style="font-size:2rem; font-weight:900; margin:0;">Dashboard</h1>
+        <a href="/new" class="btn-primary">New Post</a>
+    </div>
+</div>
+
+{{if .Data}}
+<div style="display:flex; flex-direction:column; gap:0;">
+    {{range .Data}}
+    <div class="post-card" style="padding:1.25rem 0; border-bottom:1px solid var(--rule); display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+        <div style="flex:1;">
+            <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.35rem;">
+                {{if eq .Status "draft"}}
+                <span class="badge-draft">Draft</span>
+                {{else}}
+                <span class="badge-published">Published</span>
+                {{end}}
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
+                    {{.CreatedAt.Format "Jan 2, 2006"}}
+                </span>
+            </div>
+            <h2 style="font-size:1.1rem; font-weight:700; margin:0;">
+                {{if eq .Status "published"}}
+                <a href="/post/{{.Slug}}" style="color:var(--ink); text-decoration:none;"
+                   onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink)'">
+                    {{.Title}}
+                </a>
+                {{else}}
+                <span style="color:var(--ink);">{{.Title}}</span>
+                {{end}}
+            </h2>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-shrink:0;">
+            <a href="/edit/{{.ID}}" class="btn-ghost" style="padding:0.4rem 1rem;">Edit</a>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div style="text-align:center; padding:5rem 0; color:var(--ink-muted);">
+    <p style="font-family:'JetBrains Mono',monospace; font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:1.5rem;">
+        You haven't written anything yet.
+    </p>
+    <a href="/new" class="btn-primary">Write your first post</a>
+</div>
+{{end}}
+
+{{end}}
