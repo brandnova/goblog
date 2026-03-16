@@ -58,6 +58,19 @@ func initDB() {
 		token      TEXT PRIMARY KEY,
 		user_id    INTEGER NOT NULL REFERENCES users(id),
 		expires_at TIMESTAMPTZ NOT NULL
+	);
+	
+	CREATE TABLE IF NOT EXISTS bookmarks (
+		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+		created_at TIMESTAMPTZ DEFAULT NOW(),
+		PRIMARY KEY (user_id, post_id)
+	);
+	
+	CREATE TABLE IF NOT EXISTS reactions (
+		user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		post_id  INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+		PRIMARY KEY (user_id, post_id)
 	);`
 
 	db.MustExec(schema)

@@ -3,6 +3,7 @@ package handlers
 import (
 	"html/template"
 	"net/http"
+	"strings"
 
 	"goblog/models"
 
@@ -31,8 +32,9 @@ var templateFuncs = template.FuncMap{
 	// Without this wrapper, rendered <p> tags would show as &lt;p&gt; in the browser.
 	// Django parallel: marking output as safe with mark_safe() or the |safe filter.
 	"markdown": func(body string) template.HTML {
-		return template.HTML(models.RenderMarkdown(body))
-	},
+        return template.HTML(models.RenderMarkdown(body))
+    },
+	"upper": strings.ToUpper,
 }
 
 // render parses base.html + the given page template, injects the logged-in

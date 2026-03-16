@@ -10,7 +10,7 @@
 {{if .}}
 <div style="background:white; border:1px solid var(--rule); border-radius:3px; overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.06);">
     {{range .}}
-    <a href="/post/{{.Slug}}"
+    <a href="/u/{{.AuthorName}}/{{.Slug}}"
        style="display:block; padding:1rem 1.25rem; border-bottom:1px solid var(--rule); text-decoration:none; transition:background 0.1s;"
        onmouseover="this.style.background='var(--paper-alt)'" onmouseout="this.style.background='white'">
         <div style="font-family:'Playfair Display',serif; font-size:1rem; font-weight:700; color:var(--ink); margin-bottom:0.2rem;">

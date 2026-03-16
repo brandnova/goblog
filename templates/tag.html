@@ -25,7 +25,7 @@
         {{range .Posts}}
         <article class="post-card" style="padding:1.75rem 0; border-bottom:1px solid var(--rule);">
             <h2 style="font-size:1.4rem; font-weight:700; margin:0 0 0.5rem;">
-                <a href="/post/{{.Slug}}" style="color:var(--ink); text-decoration:none; transition:color 0.1s;"
+                <a href="/u/{{.AuthorName}}/{{.Slug}}" style="color:var(--ink); text-decoration:none; transition:color 0.1s;"
                    onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink)'">
                     {{.Title}}
                 </a>

@@ -28,19 +28,30 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	render(w, r, posts, "templates/index.html")
 }
 
-// PostDetail shows a single post by its slug (GET /post/{slug})
-// Django parallel: DetailView — we use slug instead of pk, just like
-// Django's SlugField + get_absolute_url()
+// PostDetail shows a single post. (GET /u/{username}/{slug})
 func PostDetail(w http.ResponseWriter, r *http.Request) {
+	username := r.PathValue("username")
 	slug := r.PathValue("slug")
 
-	post, err := models.GetPostBySlug(DB, slug)
+	post, err := models.GetPostByUserSlug(DB, username, slug)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 
-	render(w, r, post, "templates/post.html")
+	isBookmarked := false
+	hasReacted := false
+	if u := CurrentUser(r); u != nil {
+		isBookmarked = models.IsBookmarked(DB, u.ID, post.ID)
+		hasReacted = models.HasReacted(DB, u.ID, post.ID)
+	}
+
+	render(w, r, map[string]any{
+		"Post":        post,
+		"Bookmarked":  isBookmarked,
+		"HasReacted":  hasReacted,
+		"ReactionCount": models.GetReactionCount(DB, post.ID),
+	}, "templates/post.html")
 }
 
 // PostsByTag lists all published posts for a given tag (GET /tag/{name})
@@ -153,7 +164,7 @@ func CreatePost(w http.ResponseWriter, r *http.Request) {
 	// Django parallel: calling a Celery task with .delay()
 	go notifyNewPost(title, user.Username)
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, "/u/"+user.Username+"/"+models.Slugify(title), http.StatusSeeOther)
 }
 
 // EditPostPage renders the edit form pre-filled with existing post data (GET /edit/{id})
@@ -218,8 +229,9 @@ func UpdatePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Redirect to the updated post — slug may have changed if title changed
+	user := CurrentUser(r)
 	newSlug := models.Slugify(title)
-	http.Redirect(w, r, "/post/"+newSlug, http.StatusSeeOther)
+	http.Redirect(w, r, "/u/"+user.Username+"/"+newSlug, http.StatusSeeOther)
 }
 
 // DeletePost deletes a post by ID (POST /delete/{id})
@@ -361,4 +373,109 @@ func notifyNewPost(title, author string) {
 	// The time.Sleep simulates the delay of an external API call.
 	time.Sleep(1 * time.Second)
 	log.Printf("📨  New post published: \"%s\" by %s\n", title, author)
+}
+
+// Profile shows a user's public page with all their published posts.
+// GET /u/{username}
+// Django parallel: a DetailView on User with related published posts
+func Profile(w http.ResponseWriter, r *http.Request) {
+	username := r.PathValue("username")
+
+	// Fetch the user so we can show their info even if they have no posts
+	profileUser, err := models.GetUserByUsername(DB, username)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	posts, err := models.GetPublishedByUser(DB, username)
+	if err != nil {
+		http.Error(w, "Could not fetch posts", http.StatusInternalServerError)
+		return
+	}
+
+	render(w, r, map[string]any{
+		"ProfileUser": profileUser,
+		"Posts":       posts,
+	}, "templates/profile.html")
+}
+
+// BookmarkToggle handles HTMX bookmark toggle (POST /post/{id}/bookmark)
+// Returns an HTML fragment — just the updated button — which HTMX swaps in.
+func BookmarkToggle(w http.ResponseWriter, r *http.Request) {
+	user := CurrentUser(r)
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	bookmarked, err := models.ToggleBookmark(DB, user.ID, id)
+	if err != nil {
+		http.Error(w, "Could not update bookmark", http.StatusInternalServerError)
+		return
+	}
+
+	// Return just the button fragment — HTMX swaps it into #bookmark-btn
+	label := "Bookmark"
+	style := "btn-ghost"
+	if bookmarked {
+		label = "Bookmarked ✓"
+		style = "btn-primary"
+	}
+
+	fmt.Fprintf(w, `<button
+		id="bookmark-btn"
+		class="%s"
+		hx-post="/post/%d/bookmark"
+		hx-target="#bookmark-btn"
+		hx-swap="outerHTML">
+		%s
+	</button>`, style, id, label)
+}
+
+// Bookmarks shows the logged-in user's saved posts. (GET /bookmarks)
+func Bookmarks(w http.ResponseWriter, r *http.Request) {
+	user := CurrentUser(r)
+	posts, err := models.GetBookmarkedPosts(DB, user.ID)
+	if err != nil {
+		http.Error(w, "Could not fetch bookmarks", http.StatusInternalServerError)
+		return
+	}
+	render(w, r, posts, "templates/bookmarks.html")
+}
+
+// ReactionToggle handles HTMX reaction toggle (POST /post/{id}/react)
+// Returns just the updated reaction button fragment.
+func ReactionToggle(w http.ResponseWriter, r *http.Request) {
+	user := CurrentUser(r)
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	count, err := models.ToggleReaction(DB, user.ID, id)
+	if err != nil {
+		http.Error(w, "Could not update reaction", http.StatusInternalServerError)
+		return
+	}
+
+	reacted := models.HasReacted(DB, user.ID, id)
+	style := "btn-ghost"
+	if reacted {
+		style = "btn-primary"
+	}
+
+	fmt.Fprintf(w, `<button
+		id="reaction-btn"
+		class="%s"
+		style="display:inline-flex; align-items:center; gap:0.5rem;"
+		hx-post="/post/%d/react"
+		hx-target="#reaction-btn"
+		hx-swap="outerHTML">
+		♥ <span>%d</span>
+	</button>`, style, id, count)
 }

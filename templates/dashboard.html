@@ -25,7 +25,7 @@
             </div>
             <h2 style="font-size:1.1rem; font-weight:700; margin:0;">
                 {{if eq .Status "published"}}
-                <a href="/post/{{.Slug}}" style="color:var(--ink); text-decoration:none;"
+                <a href="/u/{{.AuthorName}}/{{.Slug}}" style="color:var(--ink); text-decoration:none;"
                    onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink)'">
                     {{.Title}}
                 </a>

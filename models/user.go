@@ -63,3 +63,11 @@ func GetUserByID(db *sqlx.DB, id int) (*User, error) {
 	err := db.Get(user, "SELECT * FROM users WHERE id = $1", id)
 	return user, err
 }
+
+// GetUserByUsername fetches a user by their username.
+// Django parallel: User.objects.get(username=username)
+func GetUserByUsername(db *sqlx.DB, username string) (*User, error) {
+	user := &User{}
+	err := db.Get(user, "SELECT * FROM users WHERE username = $1", username)
+	return user, err
+}

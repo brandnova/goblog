@@ -157,9 +157,9 @@ func GetAllPublished(db *sqlx.DB) ([]Post, error) {
 	return posts, err
 }
 
-// GetPostBySlug fetches a single post by its slug, including tags.
-// Django parallel: get_object_or_404(Post, slug=slug)
-func GetPostBySlug(db *sqlx.DB, slug string) (*Post, error) {
+// GetPostByUserSlug fetches a single post by username + slug.
+// Replaces GetPostBySlug now that slugs are scoped per user.
+func GetPostByUserSlug(db *sqlx.DB, username, slug string) (*Post, error) {
 	post := &Post{}
 	err := db.Get(post, `
 		SELECT
@@ -168,20 +168,16 @@ func GetPostBySlug(db *sqlx.DB, slug string) (*Post, error) {
 			u.username AS author_name
 		FROM posts p
 		JOIN users u ON u.id = p.user_id
-		WHERE p.slug = $1
-	`, slug)
+		WHERE u.username = $1 AND p.slug = $2
+	`, username, slug)
 	if err != nil {
 		return nil, err
 	}
-
-	// Fetch associated tags in a second query.
-	// Django does this automatically via ManyToManyField + prefetch_related.
 	db.Select(&post.Tags, `
 		SELECT t.* FROM tags t
 		JOIN post_tags pt ON pt.tag_id = t.id
 		WHERE pt.post_id = $1
 	`, post.ID)
-
 	return post, nil
 }
 
@@ -352,4 +348,95 @@ func syncTags(db *sqlx.DB, postID int, tagNames []string) error {
 		}
 	}
 	return nil
+}
+
+// GetPublishedByUser returns published posts for a given username.
+// Used on public profile pages — drafts are never shown.
+// Django parallel: Post.objects.filter(user__username=username, status='published')
+func GetPublishedByUser(db *sqlx.DB, username string) ([]Post, error) {
+	var posts []Post
+	err := db.Select(&posts, `
+		SELECT
+			p.id, p.user_id, p.title, p.slug, p.body,
+			p.cover_image, p.status, p.created_at, p.updated_at,
+			u.username AS author_name
+		FROM posts p
+		JOIN users u ON u.id = p.user_id
+		WHERE u.username = $1 AND p.status = 'published'
+		ORDER BY p.created_at DESC
+	`, username)
+	return posts, err
+}
+
+// ToggleBookmark adds or removes a bookmark. Returns true if now bookmarked.
+// The INSERT ... ON CONFLICT DO DELETE pattern is a clean upsert-style toggle.
+// Django parallel: bookmark, created = Bookmark.objects.get_or_create(...)
+//                  if not created: bookmark.delete()
+func ToggleBookmark(db *sqlx.DB, userID, postID int) (bool, error) {
+	// Try to insert — if it already exists, delete it instead
+	var exists bool
+	db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM bookmarks WHERE user_id=$1 AND post_id=$2)", userID, postID)
+
+	if exists {
+		_, err := db.Exec("DELETE FROM bookmarks WHERE user_id=$1 AND post_id=$2", userID, postID)
+		return false, err
+	}
+
+	_, err := db.Exec("INSERT INTO bookmarks (user_id, post_id) VALUES ($1, $2)", userID, postID)
+	return true, err
+}
+
+// IsBookmarked checks if a user has bookmarked a post.
+func IsBookmarked(db *sqlx.DB, userID, postID int) bool {
+	var exists bool
+	db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM bookmarks WHERE user_id=$1 AND post_id=$2)", userID, postID)
+	return exists
+}
+
+// GetBookmarkedPosts returns all posts bookmarked by a user.
+func GetBookmarkedPosts(db *sqlx.DB, userID int) ([]Post, error) {
+	var posts []Post
+	err := db.Select(&posts, `
+		SELECT
+			p.id, p.user_id, p.title, p.slug, p.body,
+			p.cover_image, p.status, p.created_at, p.updated_at,
+			u.username AS author_name
+		FROM posts p
+		JOIN users u ON u.id = p.user_id
+		JOIN bookmarks b ON b.post_id = p.id
+		WHERE b.user_id = $1 AND p.status = 'published'
+		ORDER BY b.created_at DESC
+	`, userID)
+	return posts, err
+}
+
+// ToggleReaction adds or removes a reaction. Returns the new total count.
+// Django parallel: Like.objects.get_or_create(...) / like.delete()
+func ToggleReaction(db *sqlx.DB, userID, postID int) (int, error) {
+	var exists bool
+	db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM reactions WHERE user_id=$1 AND post_id=$2)", userID, postID)
+
+	if exists {
+		db.Exec("DELETE FROM reactions WHERE user_id=$1 AND post_id=$2", userID, postID)
+	} else {
+		db.Exec("INSERT INTO reactions (user_id, post_id) VALUES ($1, $2)", userID, postID)
+	}
+
+	var count int
+	err := db.Get(&count, "SELECT COUNT(*) FROM reactions WHERE post_id=$1", postID)
+	return count, err
+}
+
+// GetReactionCount returns the total reaction count for a post.
+func GetReactionCount(db *sqlx.DB, postID int) int {
+	var count int
+	db.Get(&count, "SELECT COUNT(*) FROM reactions WHERE post_id=$1", postID)
+	return count
+}
+
+// HasReacted checks if a user has reacted to a post.
+func HasReacted(db *sqlx.DB, userID, postID int) bool {
+	var exists bool
+	db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM reactions WHERE user_id=$1 AND post_id=$2)", userID, postID)
+	return exists
 }
