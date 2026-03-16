@@ -1,137 +1,106 @@
-# GoBlog — What's Next
-
-A reference doc covering deployment options, feature ideas, and Go concepts
-worth knowing as you grow this project.
+# GoBlog — Info
 
 ---
 
-## Deployment Platforms for Go Apps
+## Deployment on Leapcell
 
-### Free Tiers (No Credit Card Required)
+GoBlog is deployed on [Leapcell](https://leapcell.io) using a free PostgreSQL
+database and a serverless web service. The steps below cover the full process
+from database creation to a live URL.
 
-**Leapcell** — `leapcell.io`
-The friendliest free tier for Go specifically. Connects to GitHub, builds your
-Go binary automatically on push, and only charges for actual usage — meaning
-it costs nothing when idle. Also provides free PostgreSQL and Redis. The most
-straightforward option for this project.
+---
+
+### 1. Create the PostgreSQL Database
+
+1. Sign up or log in at [leapcell.io](https://leapcell.io)
+2. From your dashboard click **New Resource** → **PostgreSQL**
+3. Give it a name — e.g. `goblog-db` — and confirm
+4. Wait for it to provision (usually under a minute)
+5. Click into the database resource and copy the **Connection String** — it
+   looks like:
+   ```
+   postgres://username:password@host:5432/dbname
+   ```
+   Keep this somewhere safe — you will paste it as an environment variable
+   in the next step.
+
+The database schema (all five tables) is created automatically the first time
+the app starts via `initDB()` in `db.go`. There is no separate migration step.
+
+---
+
+### 2. Create the Web Service
+
+1. From your Leapcell dashboard click **New Service** → **Web Service**
+2. Click **Connect GitHub**, authorise Leapcell, and select your `goblog` repo
+3. Fill in the build settings:
+
+| Field | Value |
+|---|---|
+| **Runtime** | Go |
+| **Build Command** | `go build -o goblog .` |
+| **Start Command** | `./goblog` |
+
+---
+
+### 3. Set Environment Variables
+
+Before deploying, go to the **Environment** tab of your new service and add
+the following two variables:
+
+| Key | Value |
+|---|---|
+| `DATABASE_URL` | the connection string copied in Step 1 |
+| `PORT` | `8080` |
+
+---
+
+### 4. Deploy
+
+Click **Deploy**. Leapcell will pull your repo, run the build command, and
+start the server. Watch the live build log — a successful deployment ends with:
 
 ```
-1. Push your repo to GitHub
-2. Sign up at leapcell.io
-3. New Service → connect GitHub repo → set build command: go build -o goblog .
-4. Set start command: ./goblog
-5. Deploy — you get a .leapcell.dev subdomain immediately
+Database ready.
+Server running at http://localhost:8080
 ```
 
-**Koyeb** — `koyeb.com`
-Free tier includes one always-on web service with a `.koyeb.app` subdomain.
-Supports git-driven deployment — push to GitHub and Koyeb rebuilds
-automatically. Has first-class Go support with automatic build detection.
-
+You will be given a free subdomain in the format:
 ```
-1. Sign up at koyeb.com
-2. Create App → GitHub → select your repo
-3. Koyeb detects Go, sets build and run commands automatically
-4. Deploy
+https://goblog-xxxx.leapcell.app
 ```
 
-**Render** — `render.com`
-Well-known platform with a free tier for web services (note: free instances
-spin down after 15 minutes of inactivity and take ~30 seconds to wake up,
-which is fine for a personal blog but noticeable). Supports Go natively.
+From that point on, every `git push` to your `main` branch triggers an
+automatic redeploy.
 
-```
-1. Sign up at render.com
-2. New → Web Service → connect GitHub repo
-3. Build command: go build -o goblog .
-4. Start command: ./goblog
-5. Deploy
-```
+---
 
-**Fly.io** — `fly.io`
-Slightly more technical but very powerful. Runs your app as a container
-globally. Requires a Dockerfile (see below) and their CLI tool. Free tier
-allows up to 3 shared-CPU VMs. No cold starts.
+### Troubleshooting
+
+**Build fails with missing module errors**
+Run `go mod tidy` locally, commit the updated `go.mod` and `go.sum`, and push
+again.
 
 ```bash
-# Install Fly CLI
-curl -L https://fly.io/install.sh | sh
-
-# From your project root
-fly launch        # auto-detects Go, creates fly.toml
-fly deploy        # builds and deploys
+go mod tidy
+git add go.mod go.sum
+git commit -m "Tidy go modules"
+git push
 ```
+
+**`DATABASE_URL environment variable is not set`**
+The environment variable name must match exactly. Check for extra spaces or
+a typo in the Leapcell environment settings panel.
+
+**Cover image uploads don't work in production**
+Leapcell's serverless filesystem is read-only — file uploads to
+`static/uploads/` will silently fail. Cover images work in local development.
+Cloudflare R2 (free tier, no egress fees) is the recommended solution for
+production image storage when you are ready to add it.
 
 ---
 
-### Switching from SQLite to PostgreSQL for Deployment
-
-SQLite works perfectly for development but most cloud platforms don't provide
-persistent disk storage on free tiers — meaning your `blog.db` file disappears
-on every redeploy. For production, swap to PostgreSQL.
-
-Leapcell and Render both offer free managed Postgres. The code change is
-smaller than you'd think because all your SQL is already explicit:
-
-```bash
-go get github.com/lib/pq    # PostgreSQL driver
-```
-
-In `db.go`, change two things:
-
-```go
-// Before (SQLite)
-import _ "github.com/mattn/go-sqlite3"
-db, err = sqlx.Connect("sqlite3", "blog.db")
-
-// After (PostgreSQL)
-import _ "github.com/lib/pq"
-db, err = sqlx.Connect("postgres", os.Getenv("DATABASE_URL"))
-```
-
-Also replace SQLite-specific syntax in your queries:
-- `?` placeholders → `$1, $2, $3` (PostgreSQL uses numbered params)
-- `INSERT OR IGNORE` → `INSERT ... ON CONFLICT DO NOTHING`
-- `AUTOINCREMENT` → `SERIAL` or `BIGSERIAL`
-
----
-
-### Dockerfile (Required for Fly.io, Optional for Others)
-
-A two-stage Docker build keeps the final image small — the builder stage
-compiles the binary, the runner stage only contains the binary itself.
-
-```dockerfile
-# Stage 1: Build
-FROM golang:1.22-alpine AS builder
-RUN apk add --no-cache gcc musl-dev
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN go build -o goblog .
-
-# Stage 2: Run
-FROM alpine:latest
-RUN apk add --no-cache ca-certificates
-WORKDIR /app
-COPY --from=builder /app/goblog .
-COPY --from=builder /app/templates ./templates
-COPY --from=builder /app/static ./static
-EXPOSE 8080
-ENTRYPOINT ["./goblog"]
-```
-
-Note: if you switch to PostgreSQL, you can drop `gcc musl-dev` from the builder
-stage since `go-sqlite3` (which uses CGo) is no longer a dependency.
-
----
-
-## Feature Ideas — Turning GoBlog into a "Blogger for Everyone"
-
-You mentioned wanting something like Blogger but imagined differently — a
-platform where individuals each manage their own content. Here's a roadmap
-from simplest to most ambitious.
+## Feature Ideas
 
 ### Tier 1 — Low Effort, High Impact
 
@@ -165,12 +134,12 @@ HTMX prepends it to the comments list. No page reload, no JavaScript.
 
 ```go
 type Comment struct {
-    ID        int       `db:"id"`
-    PostID    int       `db:"post_id"`
-    UserID    int       `db:"user_id"`
-    Body      string    `db:"body"`
-    CreatedAt time.Time `db:"created_at"`
-    AuthorName string   `db:"author_name"`
+    ID         int       `db:"id"`
+    PostID     int       `db:"post_id"`
+    UserID     int       `db:"user_id"`
+    Body       string    `db:"body"`
+    CreatedAt  time.Time `db:"created_at"`
+    AuthorName string    `db:"author_name"`
 }
 ```
 
@@ -182,12 +151,11 @@ user doesn't wait.
 
 **Pagination**
 The index page will become slow with hundreds of posts. Standard SQL pagination:
+
 ```go
-// Page 1: LIMIT 10 OFFSET 0
-// Page 2: LIMIT 10 OFFSET 10
 func GetAllPublished(db *sqlx.DB, page, perPage int) ([]Post, error) {
     offset := (page - 1) * perPage
-    db.Select(&posts, `... LIMIT ? OFFSET ?`, perPage, offset)
+    db.Select(&posts, `... LIMIT $1 OFFSET $2`, perPage, offset)
 }
 ```
 
@@ -202,27 +170,30 @@ still use RSS, and it's a legitimately impressive feature to add in ~50 lines.
 
 **Follow system**
 A `follows` table (`follower_id`, `following_id`). A personalised feed at `/feed`
-shows posts only from people you follow — like Twitter/Medium's following feed.
-This is the feature that transforms the platform from "many blogs" to "a network."
+shows posts only from people you follow — like Medium's following feed. This is
+the feature that transforms the platform from "many blogs" to "a network."
 
-**Full-text search with SQLite FTS5**
-SQLite has a built-in full-text search extension (FTS5) that is dramatically
-faster and smarter than `LIKE %query%`. It supports ranking by relevance,
-prefix matching, and phrase queries. No extra package needed.
+**Full-text search with PostgreSQL**
+Replace the current `ILIKE` search with PostgreSQL's native full-text search.
+It supports ranking by relevance, stemming, and phrase queries — much smarter
+than pattern matching.
 
 ```sql
--- One-time setup
-CREATE VIRTUAL TABLE posts_fts USING fts5(title, body, content=posts, content_rowid=id);
+-- Add a search vector column
+ALTER TABLE posts ADD COLUMN search_vector TSVECTOR;
 
--- Query
-SELECT * FROM posts_fts WHERE posts_fts MATCH 'golang web development';
+-- Query with ranking
+SELECT *, ts_rank(search_vector, query) AS rank
+FROM posts, plainto_tsquery('english', $1) query
+WHERE search_vector @@ query
+ORDER BY rank DESC;
 ```
 
-**Image storage on S3/R2**
-Right now cover images are saved to `static/uploads/` on disk. On cloud
-platforms this folder is ephemeral. Cloudflare R2 is S3-compatible and has a
-generous free tier (10GB storage, no egress fees). The Go AWS SDK works with R2
-with a single endpoint change.
+**Image storage on Cloudflare R2**
+Cover images currently save to `static/uploads/` on disk, which doesn't
+persist on Leapcell's serverless plan. Cloudflare R2 is S3-compatible with
+a generous free tier (10GB storage, no egress fees). The Go AWS SDK works
+with R2 with a single endpoint change.
 
 **Admin panel**
 An `/admin` section protected by a role check (`user.Role == "admin"`). Lets
@@ -240,7 +211,7 @@ to create custom error types so you can distinguish between "not found",
 
 ```go
 type AppError struct {
-    Code    int    // HTTP status code
+    Code    int
     Message string
 }
 func (e *AppError) Error() string { return e.Message }
@@ -256,9 +227,8 @@ and understanding it unlocks a lot of Go's design patterns.
 
 **Testing**
 Go has a built-in test runner (`go test`). Writing tests for your model
-functions (the SQL queries) is straightforward and genuinely useful. The
-testing philosophy is similar to Django's `TestCase` but without a test
-database — you'd spin up an in-memory SQLite database per test.
+functions is straightforward — spin up a test PostgreSQL database, run your
+queries against it, and assert the results.
 
 ```bash
 go test ./...          # run all tests
@@ -267,50 +237,31 @@ go test -v ./models/   # verbose output for the models package
 
 **`chi` router**
 Once your route list grows, the stdlib mux starts to feel limited — no route
-groups, no middleware per group, no named URL reversal. `chi` is the most
-Django-like Go router: lightweight, composable, and it uses the same
-`http.Handler` interface so all your existing handlers work unchanged.
+groups, no middleware per group. `chi` is the most Django-like Go router:
+lightweight, composable, and fully compatible with `http.Handler`.
 
 ```go
 r := chi.NewRouter()
-r.Use(middleware.Logger)        // global middleware
+r.Use(middleware.Logger)
 r.Group(func(r chi.Router) {
-    r.Use(RequireLogin)         // group-level middleware
+    r.Use(RequireLogin)
     r.Get("/new", NewPostPage)
     r.Post("/new", CreatePost)
 })
 ```
 
 **`air` — live reload**
-The Go equivalent of Django's auto-reloading dev server. Right now you restart
-`go run .` manually after every change. Air watches your files and restarts
-automatically.
+The Go equivalent of Django's auto-reloading dev server. Air watches your
+files and restarts `go run .` automatically on every save.
 
 ```bash
 go install github.com/air-verse/air@latest
-air    # run instead of "go run ." in development
-```
-
-**Configuration with environment variables**
-Right now settings like the port and database path are hardcoded. The standard
-Go approach is `os.Getenv()`. For local dev, a `.env` file loaded with
-`github.com/joho/godotenv` gives you the same workflow as Django's
-`python-decouple` or `django-environ`.
-
-```go
-port := os.Getenv("PORT")
-if port == "" {
-    port = "8080"
-}
-log.Fatal(http.ListenAndServe(":"+port, handler))
+air
 ```
 
 ---
 
 ## The Django → Go Mental Model, Fully Resolved
-
-After building this project, here's the complete picture of what Django was
-doing for you automatically, and what you've now written yourself:
 
 | Django | What you built in Go |
 |---|---|
@@ -334,8 +285,4 @@ doing for you automatically, and what you've now written yourself:
 | Migrations | `db.MustExec(schema)` with `CREATE TABLE IF NOT EXISTS` |
 | `mark_safe()` | `template.HTML(...)` |
 | Custom template filter | `template.FuncMap{"markdown": ...}` |
-
-The biggest takeaway: Django is a very well-designed set of opinions about
-how to assemble the exact things you just built from scratch. Neither is
-"better" — Django is faster to start, Go is faster to run and easier to
-reason about at scale.
+| `python-decouple` / `django-environ` | `godotenv` + `os.Getenv()` |

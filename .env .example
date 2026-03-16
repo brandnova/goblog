@@ -1,0 +1,2 @@
+DATABASE_URL=postgres://postgres:yourpassword@localhost:5432/goblog?sslmode=disable
+PORT=8080

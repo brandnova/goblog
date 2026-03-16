@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -21,13 +20,12 @@ import (
 // Index lists all published posts (GET /)
 // Django parallel: a ListView with queryset = Post.objects.filter(status='published')
 func Index(w http.ResponseWriter, r *http.Request) {
-    posts, err := models.GetAllPublished(DB)
-    if err != nil {
-        // Temporarily print the actual error so we know what's wrong
-        http.Error(w, "Could not fetch posts: "+err.Error(), http.StatusInternalServerError)
-        return
-    }
-    render(w, r, posts, "templates/index.html")
+	posts, err := models.GetAllPublished(DB)
+	if err != nil {
+		http.Error(w, "Could not fetch posts: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	render(w, r, posts, "templates/index.html")
 }
 
 // PostDetail shows a single post by its slug (GET /post/{slug})
@@ -112,8 +110,8 @@ func CreatePost(w http.ResponseWriter, r *http.Request) {
 
 	title := strings.TrimSpace(r.FormValue("title"))
 	body := strings.TrimSpace(r.FormValue("body"))
-	status := r.FormValue("status") // "draft" or "published"
-	tagsInput := r.FormValue("tags") // comma-separated: "go, tutorial, web"
+	status := r.FormValue("status")   // "draft" or "published"
+	tagsInput := r.FormValue("tags")  // comma-separated: "go, tutorial, web"
 
 	// Basic validation
 	if title == "" || body == "" {
@@ -249,6 +247,18 @@ func DeletePost(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+// Dashboard shows the logged-in user's posts — drafts and published.
+// GET /dashboard
+func Dashboard(w http.ResponseWriter, r *http.Request) {
+	user := CurrentUser(r)
+	posts, err := models.GetPostsByUser(DB, user.ID)
+	if err != nil {
+		http.Error(w, "Could not fetch your posts: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	render(w, r, posts, "templates/dashboard.html")
+}
+
 // -----------------------------------------------------------------------
 // Private helper functions — used only within this file
 // -----------------------------------------------------------------------
@@ -284,20 +294,12 @@ func getPostForEdit(w http.ResponseWriter, r *http.Request) (*models.Post, bool)
 	return post, true
 }
 
-// Dashboard shows the logged-in user's posts — drafts and published.
-// GET /dashboard
-func Dashboard(w http.ResponseWriter, r *http.Request) {
-    user := CurrentUser(r)
-    posts, err := models.GetPostsByUser(DB, user.ID)
-    if err != nil {
-        http.Error(w, "Could not fetch your posts: "+err.Error(), http.StatusInternalServerError)
-        return
-    }
-    render(w, r, posts, "templates/dashboard.html")
-}
-
 // handleCoverUpload processes the cover_image field from a multipart form.
 // Returns the public path to the saved file, or "" if no file was uploaded.
+//
+// Note: on Leapcell's serverless plan the filesystem is read-only except
+// for /tmp. Cover image uploads will silently return "" in that environment.
+// For production file storage, use an object store like Cloudflare R2.
 func handleCoverUpload(r *http.Request) string {
 	file, header, err := r.FormFile("cover_image")
 	if err != nil {
@@ -307,7 +309,10 @@ func handleCoverUpload(r *http.Request) string {
 	defer file.Close()
 
 	// Make sure the uploads directory exists
-	os.MkdirAll("static/uploads", os.ModePerm)
+	if err := os.MkdirAll("static/uploads", os.ModePerm); err != nil {
+		log.Println("Could not create uploads directory:", err)
+		return ""
+	}
 
 	// Prefix the filename with a Unix timestamp to avoid name collisions
 	// e.g. "1714000000-my-photo.jpg"
@@ -356,17 +361,4 @@ func notifyNewPost(title, author string) {
 	// The time.Sleep simulates the delay of an external API call.
 	time.Sleep(1 * time.Second)
 	log.Printf("📨  New post published: \"%s\" by %s\n", title, author)
-}
-
-// renderPartialTmpl is a helper used in SearchHandler to render a named
-// template from a parsed set. Kept here as an unexported utility.
-func renderPartialTmpl(w http.ResponseWriter, data any, files ...string) {
-	tmpl, err := template.ParseFiles(files...)
-	if err != nil {
-		http.Error(w, "Template error: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if err := tmpl.Execute(w, data); err != nil {
-		http.Error(w, "Render error: "+err.Error(), http.StatusInternalServerError)
-	}
 }

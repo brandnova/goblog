@@ -117,6 +117,7 @@ This command:
 - Takes the input file (`src/styles.css`).
 - Outputs a compiled and minified CSS file (`../static/css/tailwind.css`).
 - Uses `--watch` to rebuild the file automatically when you make changes during development.
+- Use `--minify` to minify the generated css file after all wok is done.
 
 ---
 

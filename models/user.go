@@ -19,9 +19,9 @@ type User struct {
 }
 
 // HashPassword hashes a plain-text password using bcrypt.
+// Cost factor 14 = ~2^14 iterations — slow enough to resist brute force,
+// fast enough for a login request.
 // Django parallel: make_password() / PBKDF2PasswordHasher
-// Cost factor 14 means it runs ~2^14 iterations — slow enough to resist
-// brute force, fast enough for a login request.
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	return string(bytes), err
@@ -42,7 +42,7 @@ func CreateUser(db *sqlx.DB, username, email, password string) error {
 		return err
 	}
 	_, err = db.Exec(
-		"INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
+		"INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3)",
 		username, email, hash,
 	)
 	return err
@@ -52,7 +52,7 @@ func CreateUser(db *sqlx.DB, username, email, password string) error {
 // Django parallel: User.objects.get(email=email)
 func GetUserByEmail(db *sqlx.DB, email string) (*User, error) {
 	user := &User{}
-	err := db.Get(user, "SELECT * FROM users WHERE email = ?", email)
+	err := db.Get(user, "SELECT * FROM users WHERE email = $1", email)
 	return user, err
 }
 
@@ -60,6 +60,6 @@ func GetUserByEmail(db *sqlx.DB, email string) (*User, error) {
 // Django parallel: User.objects.get(pk=id)
 func GetUserByID(db *sqlx.DB, id int) (*User, error) {
 	user := &User{}
-	err := db.Get(user, "SELECT * FROM users WHERE id = ?", id)
+	err := db.Get(user, "SELECT * FROM users WHERE id = $1", id)
 	return user, err
 }

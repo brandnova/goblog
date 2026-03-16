@@ -54,7 +54,7 @@ func CreateSession(w http.ResponseWriter, userID int) error {
 	expires := time.Now().Add(7 * 24 * time.Hour) // 7-day session
 
 	_, err := DB.Exec(
-		"INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
+		"INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)",
 		token, userID, expires,
 	)
 	if err != nil {
@@ -82,7 +82,7 @@ func CreateSession(w http.ResponseWriter, userID int) error {
 func DestroySession(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session_token")
 	if err == nil {
-		DB.Exec("DELETE FROM sessions WHERE token = ?", cookie.Value)
+		DB.Exec("DELETE FROM sessions WHERE token = $1", cookie.Value)
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -131,7 +131,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		var expires time.Time
 
 		err = DB.QueryRow(
-			"SELECT user_id, expires_at FROM sessions WHERE token = ?",
+			"SELECT user_id, expires_at FROM sessions WHERE token = $1",
 			cookie.Value,
 		).Scan(&userID, &expires)
 
