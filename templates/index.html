@@ -48,7 +48,7 @@
                     {{end}}
 
                     <!-- Title -->
-                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem;">
+                    <h2 style="font-family:'Playfair Display',serif; font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem;">
                         <a href="/u/{{.AuthorName}}/{{.Slug}}" style="color: var(--ink); text-decoration: none; transition: color 0.1s;"
                            onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink)'">
                             {{.Title}}
@@ -62,12 +62,17 @@
 
                     <!-- Meta row -->
                     <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-                        <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
-                            {{.CreatedAt.Format "Jan 2, 2006"}}
-                        </span>
+                        <!-- Author name — clickable link to profile -->
+                        <a href="/u/{{.AuthorName}}"
+                           style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+                                  color:var(--ink-muted); text-decoration:none; transition:color 0.1s;"
+                           onmouseover="this.style.color='var(--accent)'"
+                           onmouseout="this.style.color='var(--ink-muted)'">
+                            {{.AuthorName}}
+                        </a>
                         <span style="color:var(--rule);">·</span>
                         <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
-                            {{.AuthorName}}
+                            {{.CreatedAt.Format "Jan 2, 2006"}}
                         </span>
                         <span style="color:var(--rule);">·</span>
                         <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
@@ -77,7 +82,7 @@
                 </div>
 
                 <!-- Arrow -->
-                <a href="/u/{{.AuthorName}}/{{.Slug}}" style="color:var(--ink-muted); text-decoration:none; flex-shrink:0; margin-top:0.25rem; transition:color 0.1s; transition:transform 0.15s;"
+                <a href="/u/{{.AuthorName}}/{{.Slug}}" style="color:var(--ink-muted); text-decoration:none; flex-shrink:0; margin-top:0.25rem; transition:color 0.15s, transform 0.15s;"
                    onmouseover="this.style.color='var(--accent)'; this.style.transform='translateX(4px)'"
                    onmouseout="this.style.color='var(--ink-muted)'; this.style.transform='translateX(0)'">
                     <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">

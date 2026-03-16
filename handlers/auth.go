@@ -19,15 +19,12 @@ func RegisterPage(w http.ResponseWriter, r *http.Request) {
 
 // Register processes the registration form submission.
 // POST /register
-// Django parallel: a view calling User.objects.create_user()
 func Register(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	email    := r.FormValue("email")
 	password := r.FormValue("password")
 	confirm  := r.FormValue("confirm_password")
 
-	// Re-populate fields on error so the user doesn't retype everything.
-	// Django forms do this automatically via form.data.
 	formData := map[string]string{
 		"Username": username,
 		"Email":    email,
@@ -46,13 +43,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := models.CreateUser(DB, username, email, password); err != nil {
-		// SQLite UNIQUE constraint violation = username or email already taken
 		formData["Error"] = "That username or email is already registered."
 		render(w, r, formData, "templates/register.html")
 		return
 	}
 
-	// Redirect to login with a flag so LoginPage can show a success message
 	http.Redirect(w, r, "/login?registered=1", http.StatusSeeOther)
 }
 
@@ -68,14 +63,12 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 
 // Login processes the login form submission.
 // POST /login
-// Django parallel: django.contrib.auth.views.LoginView
 func Login(w http.ResponseWriter, r *http.Request) {
 	email    := r.FormValue("email")
 	password := r.FormValue("password")
 
 	user, err := models.GetUserByEmail(DB, email)
 	if err != nil || !models.CheckPassword(password, user.PasswordHash) {
-		// Deliberately vague — never reveal whether email exists or password was wrong
 		render(w, r, map[string]string{
 			"Error": "Invalid email or password.",
 		}, "templates/login.html")
@@ -91,9 +84,100 @@ func Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // Logout destroys the current session and redirects to home.
-// POST /logout — POST prevents logout via a simple link or CSRF attack.
-// Django enforces the same thing in its logout view.
+// POST /logout
 func Logout(w http.ResponseWriter, r *http.Request) {
 	DestroySession(w, r)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// -----------------------------------------------------------------------
+// Settings — profile editing
+// -----------------------------------------------------------------------
+
+// SettingsPage renders the settings page pre-filled with current values.
+// GET /settings
+func SettingsPage(w http.ResponseWriter, r *http.Request) {
+	data := map[string]any{}
+	// ?saved=profile or ?saved=password — drives which success banner shows
+	switch r.URL.Query().Get("saved") {
+	case "profile":
+		data["ProfileSaved"] = true
+	case "password":
+		data["PasswordSaved"] = true
+	}
+	render(w, r, data, "templates/settings.html")
+}
+
+// UpdateProfile handles the profile info form (POST /settings/profile).
+// Updates first name, last name, bio, and email only.
+// Completely independent of the password form — no password fields touched.
+// Django parallel: UserChangeForm.save()
+func UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	user := CurrentUser(r)
+
+	firstName := r.FormValue("first_name")
+	lastName  := r.FormValue("last_name")
+	bio       := r.FormValue("bio")
+	email     := r.FormValue("email")
+
+	if email == "" {
+		render(w, r, map[string]any{
+			"ProfileError": "Email address cannot be empty.",
+			"FirstName":    firstName,
+			"LastName":     lastName,
+			"Bio":          bio,
+			"Email":        email,
+		}, "templates/settings.html")
+		return
+	}
+
+	if err := models.UpdateProfile(DB, user.ID, firstName, lastName, bio, email); err != nil {
+		render(w, r, map[string]any{
+			"ProfileError": err.Error(),
+			"FirstName":    firstName,
+			"LastName":     lastName,
+			"Bio":          bio,
+			"Email":        email,
+		}, "templates/settings.html")
+		return
+	}
+
+	http.Redirect(w, r, "/settings?saved=profile", http.StatusSeeOther)
+}
+
+// UpdatePassword handles the password change form (POST /settings/password).
+// Only touches the password — profile fields are never read here.
+// Django parallel: PasswordChangeForm.save()
+func UpdatePassword(w http.ResponseWriter, r *http.Request) {
+	user := CurrentUser(r)
+
+	currentPassword := r.FormValue("current_password")
+	newPassword     := r.FormValue("new_password")
+	confirmPassword := r.FormValue("confirm_password")
+
+	fail := func(msg string) {
+		render(w, r, map[string]any{
+			"PasswordError": msg,
+		}, "templates/settings.html")
+	}
+
+	if currentPassword == "" {
+		fail("Please enter your current password.")
+		return
+	}
+	if len(newPassword) < 8 {
+		fail("New password must be at least 8 characters.")
+		return
+	}
+	if newPassword != confirmPassword {
+		fail("New passwords do not match.")
+		return
+	}
+
+	if err := models.UpdatePassword(DB, user.ID, currentPassword, newPassword); err != nil {
+		fail(err.Error())
+		return
+	}
+
+	http.Redirect(w, r, "/settings?saved=password", http.StatusSeeOther)
 }

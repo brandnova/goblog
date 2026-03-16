@@ -11,6 +11,7 @@ import (
 	"github.com/gomarkdown/markdown/html"
 	"github.com/gomarkdown/markdown/parser"
 	"github.com/jmoiron/sqlx"
+	"github.com/google/uuid"
 )
 
 // Post maps to the posts table.
@@ -32,7 +33,9 @@ type Post struct {
 	// Populated manually via JOIN — not real columns on the posts table.
 	// db:"author_name" must match the AS alias in every query that fetches posts.
 	Tags       []Tag  `db:"-"`
-	AuthorName string `db:"author_name"`
+	AuthorName    string `db:"author_name"`
+	ReactionCount int    `db:"reaction_count"`
+	BookmarkCount int    `db:"bookmark_count"`
 }
 
 // Tag maps to the tags table.
@@ -121,6 +124,16 @@ func Slugify(title string) string {
 		result = strings.ReplaceAll(result, "--", "-")
 	}
 	return strings.Trim(result, "-")
+}
+
+// UniqueSlug generates a slug with an 8-character UUID suffix to guarantee
+// uniqueness across all users and posts.
+// e.g. "My Great Post" → "my-great-post-a1b2c3d4"
+// Django parallel: adding unique=True to SlugField and using uuid in pre_save
+func UniqueSlug(title string) string {
+    base := Slugify(title)
+    suffix := uuid.New().String()[:8]
+    return base + "-" + suffix
 }
 
 // TagsToString converts a []Tag slice back to a comma-separated string.
@@ -217,7 +230,9 @@ func GetPostsByUser(db *sqlx.DB, userID int) ([]Post, error) {
 		SELECT
 			p.id, p.user_id, p.title, p.slug, p.body,
 			p.cover_image, p.status, p.created_at, p.updated_at,
-			u.username AS author_name
+			u.username AS author_name,
+			(SELECT COUNT(*) FROM reactions r WHERE r.post_id = p.id) AS reaction_count,
+			(SELECT COUNT(*) FROM bookmarks b WHERE b.post_id = p.id) AS bookmark_count
 		FROM posts p
 		JOIN users u ON u.id = p.user_id
 		WHERE p.user_id = $1
@@ -269,37 +284,36 @@ func SearchPosts(db *sqlx.DB, query string) ([]Post, error) {
 // RETURNING id is PostgreSQL's way of getting the new row's ID in one query.
 // In SQLite we used result.LastInsertId() — this is cleaner.
 // Django parallel: Post.objects.create(...) followed by post.tags.set(tags)
-func CreatePost(db *sqlx.DB, userID int, title, body, status string, tags []string, coverImage string) error {
-	slug := Slugify(title)
+func CreatePost(db *sqlx.DB, userID int, title, body, status string, tags []string, coverImage string) (string, error) {
+    slug := UniqueSlug(title)
 
-	var postID int
-	err := db.QueryRow(`
-		INSERT INTO posts (user_id, title, slug, body, status, cover_image)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id
-	`, userID, title, slug, body, status, coverImage).Scan(&postID)
-	if err != nil {
-		return err
-	}
+    var postID int
+    err := db.QueryRow(`
+        INSERT INTO posts (user_id, title, slug, body, status, cover_image)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id
+    `, userID, title, slug, body, status, coverImage).Scan(&postID)
+    if err != nil {
+        return "", err
+    }
 
-	return syncTags(db, postID, tags)
+    return slug, syncTags(db, postID, tags)
 }
 
-// UpdatePost updates an existing post's fields and re-syncs its tags.
-// Django parallel: post.save() after modifying fields + post.tags.set(tags)
+// UpdatePost should never regenerate the slug — the slug is permanent
+// from the moment of creation. Changing it would break existing links
+// and cause the unique constraint collision you're seeing.
 func UpdatePost(db *sqlx.DB, postID int, title, body, status string, tags []string, coverImage string) error {
-	slug := Slugify(title)
-	_, err := db.Exec(`
-		UPDATE posts
-		SET title = $1, slug = $2, body = $3, status = $4,
-		    cover_image = $5, updated_at = NOW()
-		WHERE id = $6
-	`, title, slug, body, status, coverImage, postID)
-	if err != nil {
-		return err
-	}
-
-	return syncTags(db, postID, tags)
+    _, err := db.Exec(`
+        UPDATE posts
+        SET title = $1, body = $2, status = $3,
+            cover_image = $4, updated_at = NOW()
+        WHERE id = $5
+    `, title, body, status, coverImage, postID)
+    if err != nil {
+        return err
+    }
+    return syncTags(db, postID, tags)
 }
 
 // DeletePost removes a post. The ON DELETE CASCADE on post_tags means
@@ -354,18 +368,20 @@ func syncTags(db *sqlx.DB, postID int, tagNames []string) error {
 // Used on public profile pages — drafts are never shown.
 // Django parallel: Post.objects.filter(user__username=username, status='published')
 func GetPublishedByUser(db *sqlx.DB, username string) ([]Post, error) {
-	var posts []Post
-	err := db.Select(&posts, `
-		SELECT
-			p.id, p.user_id, p.title, p.slug, p.body,
-			p.cover_image, p.status, p.created_at, p.updated_at,
-			u.username AS author_name
-		FROM posts p
-		JOIN users u ON u.id = p.user_id
-		WHERE u.username = $1 AND p.status = 'published'
-		ORDER BY p.created_at DESC
-	`, username)
-	return posts, err
+    var posts []Post
+    err := db.Select(&posts, `
+        SELECT
+            p.id, p.user_id, p.title, p.slug, p.body,
+            p.cover_image, p.status, p.created_at, p.updated_at,
+            u.username AS author_name,
+            (SELECT COUNT(*) FROM reactions r WHERE r.post_id = p.id) AS reaction_count,
+            0 AS bookmark_count
+        FROM posts p
+        JOIN users u ON u.id = p.user_id
+        WHERE u.username = $1 AND p.status = 'published'
+        ORDER BY p.created_at DESC
+    `, username)
+    return posts, err
 }
 
 // ToggleBookmark adds or removes a bookmark. Returns true if now bookmarked.

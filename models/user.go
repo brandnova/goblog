@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -8,14 +9,32 @@ import (
 )
 
 // User maps to the users table.
-// The `db` struct tags tell sqlx which column maps to which field.
 // Django parallel: a Model class with CharField, EmailField etc.
 type User struct {
 	ID           int       `db:"id"`
 	Username     string    `db:"username"`
 	Email        string    `db:"email"`
 	PasswordHash string    `db:"password_hash"`
+	FirstName    string    `db:"first_name"`
+	LastName     string    `db:"last_name"`
+	Bio          string    `db:"bio"`
 	CreatedAt    time.Time `db:"created_at"`
+}
+
+// DisplayName returns the user's full name if set, otherwise their username.
+// Called in templates as {{ .User.DisplayName }} — just like a Django model method.
+func (u *User) DisplayName() string {
+	if u.FirstName != "" || u.LastName != "" {
+		name := u.FirstName
+		if u.LastName != "" {
+			if name != "" {
+				name += " "
+			}
+			name += u.LastName
+		}
+		return name
+	}
+	return u.Username
 }
 
 // HashPassword hashes a plain-text password using bcrypt.
@@ -70,4 +89,45 @@ func GetUserByUsername(db *sqlx.DB, username string) (*User, error) {
 	user := &User{}
 	err := db.Get(user, "SELECT * FROM users WHERE username = $1", username)
 	return user, err
+}
+
+// UpdateProfile updates a user's display name, bio, and email.
+// Email is checked for uniqueness against other users before saving.
+// Django parallel: user.save() after modifying fields, with form-level validation.
+func UpdateProfile(db *sqlx.DB, userID int, firstName, lastName, bio, email string) error {
+	// Check the email isn't already taken by a different account
+	var existingID int
+	err := db.Get(&existingID, "SELECT id FROM users WHERE email = $1", email)
+	if err == nil && existingID != userID {
+		return errors.New("that email address is already in use")
+	}
+
+	_, err = db.Exec(`
+		UPDATE users
+		SET first_name = $1, last_name = $2, bio = $3, email = $4
+		WHERE id = $5
+	`, firstName, lastName, bio, email, userID)
+	return err
+}
+
+// UpdatePassword changes a user's password after verifying their current one.
+// Django parallel: user.set_password() gated by check_password()
+func UpdatePassword(db *sqlx.DB, userID int, currentPassword, newPassword string) error {
+	// Fetch the current hash to verify against
+	var hash string
+	if err := db.Get(&hash, "SELECT password_hash FROM users WHERE id = $1", userID); err != nil {
+		return errors.New("user not found")
+	}
+
+	if !CheckPassword(currentPassword, hash) {
+		return errors.New("current password is incorrect")
+	}
+
+	newHash, err := HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec("UPDATE users SET password_hash = $1 WHERE id = $2", newHash, userID)
+	return err
 }

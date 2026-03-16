@@ -1,76 +1,129 @@
 {{define "content"}}
 
-<div style="max-width: 680px;">
+<div style="max-width:680px;">
 
-    <!-- Profile header -->
-    <div style="display: flex; align-items: center; gap: 1.5rem; padding-bottom: 2rem;
-                border-bottom: 1px solid var(--rule); margin-bottom: 2.5rem;">
+    <!-- ── Profile header ───────────────────────────────────────────── -->
+    <div style="display:flex; align-items:flex-start; gap:1.5rem;
+                padding-bottom:2rem; border-bottom:1px solid var(--rule);
+                margin-bottom:2.5rem; flex-wrap:wrap;">
+
         <!-- Avatar initials circle -->
-        <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--ink);
-                    color: var(--paper); display: flex; align-items: center; justify-content: center;
-                    font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 900;
-                    flex-shrink: 0;">
-            {{slice .Data.ProfileUser.Username 0 1 | upper}}
+        <div style="width:64px; height:64px; border-radius:50%; background:var(--ink);
+                    color:var(--paper); display:flex; align-items:center; justify-content:center;
+                    font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:900;
+                    flex-shrink:0; letter-spacing:-0.02em;">
+            {{slice (.Data.ProfileUser.DisplayName) 0 1 | upper}}
         </div>
-        <div>
-            <h1 style="font-family: 'Playfair Display', serif; font-size: 1.75rem;
-                       font-weight: 900; margin: 0 0 0.25rem;">
-                {{.Data.ProfileUser.Username}}
-            </h1>
-            <p style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
-                      color: var(--ink-muted); margin: 0; letter-spacing: 0.08em;">
-                {{len .Data.Posts}} published post{{if ne (len .Data.Posts) 1}}s{{end}}
-                &nbsp;·&nbsp; member since {{.Data.ProfileUser.CreatedAt.Format "Jan 2006"}}
+
+        <!-- Name, handle, bio, meta -->
+        <div style="flex:1; min-width:0;">
+
+            <!-- Display name + optional edit button on the same row -->
+            <div style="display:flex; align-items:flex-start; justify-content:space-between;
+                        gap:1rem; flex-wrap:wrap; margin-bottom:0.2rem;">
+                <h1 style="font-family:'Playfair Display',serif; font-size:1.75rem;
+                           font-weight:900; margin:0; line-height:1.15;">
+                    {{.Data.ProfileUser.DisplayName}}
+                </h1>
+
+                {{if $.User}}
+                    {{if eq $.User.Username .Data.ProfileUser.Username}}
+                    <a href="/settings" class="btn-ghost"
+                       style="padding:0.35rem 0.9rem; font-size:0.68rem; flex-shrink:0;">
+                        Edit profile
+                    </a>
+                    {{end}}
+                {{end}}
+            </div>
+
+            <!-- @username handle — shown separately when display name differs -->
+            {{if ne .Data.ProfileUser.DisplayName .Data.ProfileUser.Username}}
+            <p style="font-family:'JetBrains Mono',monospace; font-size:0.72rem;
+                      color:var(--ink-muted); margin:0 0 0.6rem; letter-spacing:0.05em;">
+                @{{.Data.ProfileUser.Username}}
             </p>
+            {{end}}
+
+            <!-- Bio — only shown if set -->
+            {{if .Data.ProfileUser.Bio}}
+            <p style="font-size:0.95rem; color:var(--ink-soft); margin:0.5rem 0 0.75rem;
+                      line-height:1.6; max-width:480px;">
+                {{.Data.ProfileUser.Bio}}
+            </p>
+            {{end}}
+
+            <!-- Meta: post count · member since -->
+            <p style="font-family:'JetBrains Mono',monospace; font-size:0.68rem;
+                      color:var(--ink-muted); margin:0.5rem 0 0; letter-spacing:0.05em;">
+                {{len .Data.Posts}} post{{if ne (len .Data.Posts) 1}}s{{end}}
+                &nbsp;·&nbsp; joined {{.Data.ProfileUser.CreatedAt.Format "Jan 2006"}}
+            </p>
+
         </div>
     </div>
 
-    <!-- Post list -->
+    <!-- ── Post list ────────────────────────────────────────────────── -->
     {{if .Data.Posts}}
         {{range .Data.Posts}}
-        <article class="post-card" style="padding: 1.5rem 0; border-bottom: 1px solid var(--rule);">
+        <article class="post-card" style="padding:1.5rem 0; border-bottom:1px solid var(--rule);">
+
             {{if .Tags}}
-            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.5rem;">
                 {{range .Tags}}
                 <a href="/tag/{{.Name}}" class="tag-pill">{{.Name}}</a>
                 {{end}}
             </div>
             {{end}}
 
-            <h2 style="font-family: 'Playfair Display', serif; font-size: 1.4rem;
-                       font-weight: 700; margin: 0 0 0.5rem;">
+            <h2 style="font-family:'Playfair Display',serif; font-size:1.4rem;
+                       font-weight:700; margin:0 0 0.5rem;">
                 <a href="/u/{{$.Data.ProfileUser.Username}}/{{.Slug}}"
-                   style="color: var(--ink); text-decoration: none;"
+                   style="color:var(--ink); text-decoration:none; transition:color 0.1s;"
                    onmouseover="this.style.color='var(--accent)'"
                    onmouseout="this.style.color='var(--ink)'">
                     {{.Title}}
                 </a>
             </h2>
 
-            <p style="color: var(--ink-soft); font-size: 0.95rem; line-height: 1.6;
-                      margin: 0 0 0.75rem;">
+            <p style="color:var(--ink-soft); font-size:0.95rem; line-height:1.6;
+                      margin:0 0 0.75rem;">
                 {{.Excerpt}}
             </p>
 
-            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
-                             color: var(--ink-muted);">
+            <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center;">
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+                             color:var(--ink-muted);">
                     {{.CreatedAt.Format "Jan 2, 2006"}}
                 </span>
-                <span style="color: var(--rule);">·</span>
-                <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
-                             color: var(--ink-muted);">
+                <span style="color:var(--rule);">·</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+                             color:var(--ink-muted);">
                     {{.ReadTime}} min read
                 </span>
+                {{if .ReactionCount}}
+                <span style="color:var(--rule);">·</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+                             color:var(--ink-muted);">
+                    ♥ {{.ReactionCount}}
+                </span>
+                {{end}}
             </div>
+
         </article>
         {{end}}
     {{else}}
-        <div style="text-align: center; padding: 4rem 0; color: var(--ink-muted);">
-            <p style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
-                      letter-spacing: 0.1em; text-transform: uppercase;">
+        <div style="text-align:center; padding:4rem 0; color:var(--ink-muted);">
+            <p style="font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+                      letter-spacing:0.1em; text-transform:uppercase;">
                 No posts published yet.
             </p>
+            {{if $.User}}
+                {{if eq $.User.Username .Data.ProfileUser.Username}}
+                <a href="/new" class="btn-primary" style="margin-top:1.5rem; display:inline-block;">
+                    Write your first post
+                </a>
+                {{end}}
+            {{end}}
         </div>
     {{end}}
 

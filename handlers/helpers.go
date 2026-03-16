@@ -34,7 +34,8 @@ var templateFuncs = template.FuncMap{
 	"markdown": func(body string) template.HTML {
         return template.HTML(models.RenderMarkdown(body))
     },
-	"upper": strings.ToUpper,
+	"upper":   strings.ToUpper,
+    "add":     func(a, b int) int { return a + b },
 }
 
 // render parses base.html + the given page template, injects the logged-in

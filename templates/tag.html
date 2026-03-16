@@ -3,7 +3,10 @@
 {{with .Data}}
 
 <div style="margin-bottom:2.5rem;">
-    <a href="/" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-muted); text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem; margin-bottom:1.25rem; transition:color 0.1s;"
+    <a href="/"
+       style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; letter-spacing:0.08em;
+              text-transform:uppercase; color:var(--ink-muted); text-decoration:none;
+              display:inline-flex; align-items:center; gap:0.4rem; margin-bottom:1.25rem; transition:color 0.1s;"
        onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink-muted)'">
         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -12,45 +15,67 @@
     </a>
 
     <div class="section-rule">Tag</div>
-    <h1 style="font-size:2.25rem; font-weight:900; margin:0;">
+    <h1 style="font-family:'Playfair Display',serif; font-size:2.25rem; font-weight:900; margin:0;">
         #{{.TagName}}
     </h1>
-    <p style="color:var(--ink-muted); font-family:'JetBrains Mono',monospace; font-size:0.75rem; margin-top:0.5rem;">
+    <p style="color:var(--ink-muted); font-family:'JetBrains Mono',monospace;
+              font-size:0.72rem; margin-top:0.5rem;">
         {{len .Posts}} post{{if ne (len .Posts) 1}}s{{end}}
     </p>
 </div>
 
 {{if .Posts}}
-    <div style="display:flex; flex-direction:column; gap:0;">
+    <div style="display:flex; flex-direction:column;">
         {{range .Posts}}
         <article class="post-card" style="padding:1.75rem 0; border-bottom:1px solid var(--rule);">
-            <h2 style="font-size:1.4rem; font-weight:700; margin:0 0 0.5rem;">
-                <a href="/u/{{.AuthorName}}/{{.Slug}}" style="color:var(--ink); text-decoration:none; transition:color 0.1s;"
-                   onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink)'">
+
+            <h2 style="font-family:'Playfair Display',serif; font-size:1.4rem;
+                       font-weight:700; margin:0 0 0.5rem;">
+                <a href="/u/{{.AuthorName}}/{{.Slug}}"
+                   style="color:var(--ink); text-decoration:none; transition:color 0.1s;"
+                   onmouseover="this.style.color='var(--accent)'"
+                   onmouseout="this.style.color='var(--ink)'">
                     {{.Title}}
                 </a>
             </h2>
+
             <p style="color:var(--ink-soft); font-size:0.95rem; line-height:1.6; margin:0 0 0.75rem;">
                 {{.Excerpt}}
             </p>
-            <div style="display:flex; gap:1rem; flex-wrap:wrap;">
-                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
+
+            <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center;">
+                <!-- Author name as clickable link -->
+                <a href="/u/{{.AuthorName}}"
+                   style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+                          color:var(--ink-muted); text-decoration:none; transition:color 0.1s;"
+                   onmouseover="this.style.color='var(--accent)'"
+                   onmouseout="this.style.color='var(--ink-muted)'">
+                    {{.AuthorName}}
+                </a>
+                <span style="color:var(--rule);">·</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+                             color:var(--ink-muted);">
                     {{.CreatedAt.Format "Jan 2, 2006"}}
                 </span>
                 <span style="color:var(--rule);">·</span>
-                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+                             color:var(--ink-muted);">
                     {{.ReadTime}} min read
                 </span>
             </div>
+
         </article>
         {{end}}
     </div>
 {{else}}
     <div style="text-align:center; padding:4rem 0; color:var(--ink-muted);">
-        <p style="font-family:'JetBrains Mono',monospace; font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase;">
+        <p style="font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+                  letter-spacing:0.1em; text-transform:uppercase;">
             No posts found for this tag.
         </p>
-        <a href="/" style="display:inline-block; margin-top:1rem;" class="btn-ghost">Back to home</a>
+        <a href="/" style="display:inline-block; margin-top:1rem;" class="btn-ghost">
+            Back to home
+        </a>
     </div>
 {{end}}
 

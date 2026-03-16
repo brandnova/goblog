@@ -149,7 +149,7 @@ func CreatePost(w http.ResponseWriter, r *http.Request) {
 	// Handle optional cover image upload
 	coverImagePath := handleCoverUpload(r)
 
-	err := models.CreatePost(DB, user.ID, title, body, status, tags, coverImagePath)
+	slug, err := models.CreatePost(DB, user.ID, title, body, status, tags, coverImagePath)
 	if err != nil {
 		render(w, r, map[string]any{
 			"Error": "Could not save post: " + err.Error(),
@@ -164,7 +164,7 @@ func CreatePost(w http.ResponseWriter, r *http.Request) {
 	// Django parallel: calling a Celery task with .delay()
 	go notifyNewPost(title, user.Username)
 
-	http.Redirect(w, r, "/u/"+user.Username+"/"+models.Slugify(title), http.StatusSeeOther)
+	http.Redirect(w, r, "/u/"+user.Username+"/"+slug+"?new=1", http.StatusSeeOther)
 }
 
 // EditPostPage renders the edit form pre-filled with existing post data (GET /edit/{id})
@@ -174,7 +174,7 @@ func EditPostPage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return // getPostForEdit already wrote the error response
 	}
-
+ 
 	render(w, r, map[string]any{
 		"Post": post,
 		"Tags": models.TagsToString(post.Tags), // convert []Tag back to "go, tutorial"
@@ -228,10 +228,10 @@ func UpdatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Redirect to the updated post — slug may have changed if title changed
+	// Redirect to the updated post using the original slug.
+	// Slug never changes on update — locked in at creation time.
 	user := CurrentUser(r)
-	newSlug := models.Slugify(title)
-	http.Redirect(w, r, "/u/"+user.Username+"/"+newSlug, http.StatusSeeOther)
+	http.Redirect(w, r, "/u/"+user.Username+"/"+post.Slug+"?saved=1", http.StatusSeeOther)
 }
 
 // DeletePost deletes a post by ID (POST /delete/{id})
@@ -242,12 +242,12 @@ func DeletePost(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-
+ 
 	if err := models.DeletePost(DB, post.ID); err != nil {
 		http.Error(w, "Could not delete post", http.StatusInternalServerError)
 		return
 	}
-
+ 
 	// If this was an HTMX request, return a 200 with empty body —
 	// HTMX will remove the element from the DOM automatically.
 	// Otherwise redirect to home as normal.
@@ -255,7 +255,7 @@ func DeletePost(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-
+ 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -289,20 +289,20 @@ func getPostForEdit(w http.ResponseWriter, r *http.Request) (*models.Post, bool)
 		http.NotFound(w, r)
 		return nil, false
 	}
-
+ 
 	post, err := models.GetPostByID(DB, id)
 	if err != nil {
 		http.NotFound(w, r)
 		return nil, false
 	}
-
+ 
 	// Ownership check — only the author can edit or delete their post
 	user := CurrentUser(r)
 	if post.UserID != user.ID {
 		http.Error(w, "You are not allowed to edit this post.", http.StatusForbidden)
 		return nil, false
 	}
-
+ 
 	return post, true
 }
 
@@ -319,32 +319,32 @@ func handleCoverUpload(r *http.Request) string {
 		return ""
 	}
 	defer file.Close()
-
+ 
 	// Make sure the uploads directory exists
 	if err := os.MkdirAll("static/uploads", os.ModePerm); err != nil {
 		log.Println("Could not create uploads directory:", err)
 		return ""
 	}
-
+ 
 	// Prefix the filename with a Unix timestamp to avoid name collisions
 	// e.g. "1714000000-my-photo.jpg"
 	filename := fmt.Sprintf("%d-%s", time.Now().Unix(), header.Filename)
 	savePath := "static/uploads/" + filename
-
+ 
 	dst, err := os.Create(savePath)
 	if err != nil {
 		log.Println("Could not save uploaded file:", err)
 		return ""
 	}
 	defer dst.Close()
-
+ 
 	// io.Copy streams the upload to disk without loading it all into memory
 	// Django parallel: default_storage.save()
 	if _, err := io.Copy(dst, file); err != nil {
 		log.Println("Could not write uploaded file:", err)
 		return ""
 	}
-
+ 
 	// Return the URL path (not the filesystem path) so we can store it in the DB
 	return "/static/uploads/" + filename
 }
@@ -478,4 +478,11 @@ func ReactionToggle(w http.ResponseWriter, r *http.Request) {
 		hx-swap="outerHTML">
 		♥ <span>%d</span>
 	</button>`, style, id, count)
+}
+
+// NotFound renders a custom 404 page.
+// Registered in main.go as the fallback for unmatched routes.
+func NotFound(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(http.StatusNotFound)
+    render(w, r, nil, "templates/404.html")
 }

@@ -74,5 +74,17 @@ func initDB() {
 	);`
 
 	db.MustExec(schema)
+
+	migrations := []string{
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT DEFAULT ''`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name  TEXT DEFAULT ''`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS bio        TEXT DEFAULT ''`,
+	}
+	for _, m := range migrations {
+		if _, err := db.Exec(m); err != nil {
+			log.Printf("Migration warning: %v\n", err)
+		}
+	}
+
 	log.Println("Database ready.")
 }

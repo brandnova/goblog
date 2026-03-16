@@ -1,0 +1,178 @@
+{{define "content"}}
+
+<div style="max-width:600px;">
+
+    <div style="margin-bottom:2.5rem;">
+        <div class="section-rule">Account</div>
+        <h1 style="font-family:'Playfair Display',serif; font-size:2rem; font-weight:900; margin:0 0 0.35rem;">
+            Settings
+        </h1>
+        <p style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+                  color:var(--ink-muted); margin:0; letter-spacing:0.05em;">
+            @{{.User.Username}} &nbsp;·&nbsp; member since {{.User.CreatedAt.Format "January 2006"}}
+        </p>
+    </div>
+
+    <!-- ================================================================
+         PROFILE FORM
+         Posts to /settings/profile — completely independent of password.
+    ================================================================ -->
+
+    {{if .Data.ProfileSaved}}
+    <div class="alert-success" style="margin-bottom:1.5rem;">Profile updated successfully.</div>
+    {{end}}
+
+    {{if .Data.ProfileError}}
+    <div class="alert-error" style="margin-bottom:1.5rem;">{{.Data.ProfileError}}</div>
+    {{end}}
+
+    <form method="POST" action="/settings/profile"
+          style="display:flex; flex-direction:column; gap:1.25rem; margin-bottom:3rem;">
+
+        <fieldset style="border:none; padding:0; margin:0; display:flex; flex-direction:column; gap:1.25rem;">
+            <legend style="font-family:'JetBrains Mono',monospace; font-size:0.68rem;
+                           letter-spacing:0.15em; text-transform:uppercase;
+                           color:var(--ink-muted); margin-bottom:0.25rem; display:block;">
+                Profile
+            </legend>
+
+            <!-- First + Last name on one row, stacks on mobile -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                <div>
+                    <label style="display:block; font-family:'JetBrains Mono',monospace;
+                                  font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase;
+                                  color:var(--ink-muted); margin-bottom:0.4rem;">
+                        First Name
+                    </label>
+                    <input type="text" name="first_name" class="field"
+                           placeholder="Ada"
+                           value="{{if .Data.FirstName}}{{.Data.FirstName}}{{else}}{{.User.FirstName}}{{end}}"
+                           autocomplete="given-name">
+                </div>
+                <div>
+                    <label style="display:block; font-family:'JetBrains Mono',monospace;
+                                  font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase;
+                                  color:var(--ink-muted); margin-bottom:0.4rem;">
+                        Last Name
+                    </label>
+                    <input type="text" name="last_name" class="field"
+                           placeholder="Lovelace"
+                           value="{{if .Data.LastName}}{{.Data.LastName}}{{else}}{{.User.LastName}}{{end}}"
+                           autocomplete="family-name">
+                </div>
+            </div>
+
+            <div>
+                <label style="display:block; font-family:'JetBrains Mono',monospace;
+                              font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase;
+                              color:var(--ink-muted); margin-bottom:0.4rem;">
+                    Bio
+                </label>
+                <textarea name="bio" class="field" rows="3"
+                          placeholder="A short line about yourself…"
+                          style="resize:vertical;"
+                >{{if .Data.Bio}}{{.Data.Bio}}{{else}}{{.User.Bio}}{{end}}</textarea>
+                <p style="font-family:'JetBrains Mono',monospace; font-size:0.65rem;
+                           color:var(--ink-muted); margin-top:0.35rem;">
+                    Shown on your public profile page.
+                </p>
+            </div>
+
+            <div>
+                <label style="display:block; font-family:'JetBrains Mono',monospace;
+                              font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase;
+                              color:var(--ink-muted); margin-bottom:0.4rem;">
+                    Email
+                </label>
+                <input type="email" name="email" class="field" required
+                       value="{{if .Data.Email}}{{.Data.Email}}{{else}}{{.User.Email}}{{end}}"
+                       autocomplete="email">
+            </div>
+        </fieldset>
+
+        <div style="display:flex; align-items:center; gap:1rem; padding-top:0.75rem;
+                    border-top:1px solid var(--rule);">
+            <button type="submit" class="btn-primary">Save profile</button>
+            <a href="/u/{{.User.Username}}" class="btn-ghost">View profile</a>
+        </div>
+
+    </form>
+
+    <!-- ================================================================
+         PASSWORD FORM
+         Posts to /settings/password — never touches profile fields.
+    ================================================================ -->
+
+    <hr style="border:none; border-top:1px solid var(--rule); margin:0 0 2.5rem;">
+
+    {{if .Data.PasswordSaved}}
+    <div class="alert-success" style="margin-bottom:1.5rem;">Password changed successfully.</div>
+    {{end}}
+
+    {{if .Data.PasswordError}}
+    <div class="alert-error" style="margin-bottom:1.5rem;">{{.Data.PasswordError}}</div>
+    {{end}}
+
+    <form method="POST" action="/settings/password"
+          style="display:flex; flex-direction:column; gap:1.25rem;">
+
+        <fieldset style="border:none; padding:0; margin:0; display:flex; flex-direction:column; gap:1.25rem;">
+            <legend style="font-family:'JetBrains Mono',monospace; font-size:0.68rem;
+                           letter-spacing:0.15em; text-transform:uppercase;
+                           color:var(--ink-muted); margin-bottom:0.25rem; display:block;">
+                Change Password
+            </legend>
+
+            <div>
+                <label style="display:block; font-family:'JetBrains Mono',monospace;
+                              font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase;
+                              color:var(--ink-muted); margin-bottom:0.4rem;">
+                    Current Password
+                </label>
+                <input type="password" name="current_password" class="field"
+                       placeholder="Your current password"
+                       autocomplete="current-password">
+            </div>
+
+            <div>
+                <label style="display:block; font-family:'JetBrains Mono',monospace;
+                              font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase;
+                              color:var(--ink-muted); margin-bottom:0.4rem;">
+                    New Password
+                </label>
+                <input type="password" name="new_password" class="field"
+                       placeholder="Min. 8 characters"
+                       autocomplete="new-password">
+            </div>
+
+            <div>
+                <label style="display:block; font-family:'JetBrains Mono',monospace;
+                              font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase;
+                              color:var(--ink-muted); margin-bottom:0.4rem;">
+                    Confirm New Password
+                </label>
+                <input type="password" name="confirm_password" class="field"
+                       placeholder="Repeat new password"
+                       autocomplete="new-password">
+            </div>
+        </fieldset>
+
+        <div style="display:flex; align-items:center; gap:1rem; padding-top:0.75rem;
+                    border-top:1px solid var(--rule);">
+            <button type="submit" class="btn-primary">Change password</button>
+        </div>
+
+    </form>
+
+</div>
+
+<!-- Stack name grid on small screens -->
+<style>
+    @media (max-width: 480px) {
+        form div[style*="grid-template-columns:1fr 1fr"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
+
+{{end}}

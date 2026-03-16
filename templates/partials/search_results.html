@@ -1,26 +1,30 @@
-{{/* 
-    This is an HTMX partial — it's NOT a full page and does NOT use base.html.
-    It gets rendered by SearchHandler and injected into #search-results on the
-    index page by HTMX, replacing its contents with this HTML fragment.
-
-    Django parallel: a view returning HttpResponse(render_to_string('partial.html', context))
-    or a {% include %} fragment rendered inline.
-*/}}
-
 {{if .}}
-<div style="background:white; border:1px solid var(--rule); border-radius:3px; overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.06);">
+<div style="background:white; border:1px solid var(--rule); border-radius:3px;
+            overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.06);">
     {{range .}}
     <a href="/u/{{.AuthorName}}/{{.Slug}}"
-       style="display:block; padding:1rem 1.25rem; border-bottom:1px solid var(--rule); text-decoration:none; transition:background 0.1s;"
-       onmouseover="this.style.background='var(--paper-alt)'" onmouseout="this.style.background='white'">
-        <div style="font-family:'Playfair Display',serif; font-size:1rem; font-weight:700; color:var(--ink); margin-bottom:0.2rem;">
+       style="display:block; padding:1rem 1.25rem; border-bottom:1px solid var(--rule);
+              text-decoration:none; transition:background 0.1s;"
+       onmouseover="this.style.background='var(--paper-alt)'"
+       onmouseout="this.style.background='white'">
+        <div style="font-family:'Playfair Display',serif; font-size:1rem; font-weight:700;
+                    color:var(--ink); margin-bottom:0.25rem;">
             {{.Title}}
         </div>
-        <div style="display:flex; gap:0.75rem;">
-            <span style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--ink-muted);">
+        <div style="display:flex; gap:0.75rem; align-items:center;">
+            <!-- Author as a separate link — stopPropagation prevents the
+                 outer <a> from also firing when clicking the author name -->
+            <a href="/u/{{.AuthorName}}"
+               style="font-family:'JetBrains Mono',monospace; font-size:0.65rem;
+                      color:var(--ink-muted); text-decoration:none; transition:color 0.1s;"
+               onmouseover="this.style.color='var(--accent)'"
+               onmouseout="this.style.color='var(--ink-muted)'"
+               onclick="event.stopPropagation()">
                 {{.AuthorName}}
-            </span>
-            <span style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--ink-muted);">
+            </a>
+            <span style="color:var(--rule);">·</span>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:0.65rem;
+                         color:var(--ink-muted);">
                 {{.ReadTime}} min read
             </span>
         </div>
@@ -28,7 +32,8 @@
     {{end}}
 </div>
 {{else}}
-<div style="padding:0.85rem 1rem; font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--ink-muted); letter-spacing:0.05em;">
+<div style="padding:0.85rem 1rem; font-family:'JetBrains Mono',monospace;
+            font-size:0.75rem; color:var(--ink-muted); letter-spacing:0.05em;">
     No results found.
 </div>
 {{end}}

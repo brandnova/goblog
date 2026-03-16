@@ -5,27 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GoBlog</title>
 
-    <!-- Google Fonts: Playfair Display for headings, Source Serif 4 for body -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-    <!-- Local compiled Tailwind -->
     <link rel="stylesheet" href="/static/css/tailwind.css">
 
     <style>
+        /* ── Design tokens ─────────────────────────────────────────── */
         :root {
-            --ink:       #1a1a18;
-            --ink-soft:  #4a4a45;
-            --ink-muted: #8a8a82;
-            --paper:     #faf9f6;
-            --paper-alt: #f2f0eb;
-            --rule:      #e0ddd6;
-            --accent:    #c8402a;
-            --accent-alt:#2a6e5e;
+            --ink:         #1a1a18;
+            --ink-soft:    #4a4a45;
+            --ink-muted:   #8a8a82;
+            --paper:       #faf9f6;
+            --paper-alt:   #f2f0eb;
+            --paper-hover: #ede9e2;   /* card hover background */
+            --rule:        #e0ddd6;
+            --accent:      #c8402a;
+            --accent-dim:  rgba(200, 64, 42, 0.08); /* accent tint for hover states */
+            --accent-alt:  #2a6e5e;
+            --shadow-sm:   0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md:   0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
         }
 
-        * { box-sizing: border-box; }
+        /* ── Reset ──────────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             background-color: var(--paper);
@@ -34,6 +37,7 @@
             font-size: 18px;
             line-height: 1.7;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
 
         h1, h2, h3, h4 {
@@ -41,175 +45,204 @@
             line-height: 1.2;
         }
 
-        code, pre, .mono {
-            font-family: 'JetBrains Mono', monospace;
+        code, pre { font-family: 'JetBrains Mono', monospace; }
+        img { max-width: 100%; height: auto; display: block; }
+
+        /* ── Layout ─────────────────────────────────────────────────── */
+        .container {
+            width: 100%;
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 0 1.25rem;
+        }
+        @media (min-width: 640px) {
+            .container { padding: 0 2rem; }
         }
 
-        /* Thin horizontal rule with label — used throughout */
+        /* ── Section rule ───────────────────────────────────────────── */
         .section-rule {
             display: flex;
             align-items: center;
             gap: 1rem;
             color: var(--ink-muted);
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-family: 'JetBrains Mono', monospace;
             letter-spacing: 0.15em;
             text-transform: uppercase;
             margin-bottom: 2rem;
         }
-        .section-rule::before,
         .section-rule::after {
             content: '';
             flex: 1;
             height: 1px;
             background: var(--rule);
         }
-        .section-rule::before { display: none; }
 
-        /* Masthead rule line */
-        .masthead-rule {
-            border: none;
-            border-top: 3px solid var(--ink);
-            margin: 0;
-        }
-        .masthead-subrule {
-            border: none;
-            border-top: 1px solid var(--ink);
-            margin: 0;
-        }
-
-        /* Post card hover lift */
+        /* ── Post card ──────────────────────────────────────────────── */
+        /* Uses a left-border accent reveal + background tint instead of
+           translateY lift. More editorial, less "SaaS product card". */
         .post-card {
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            position: relative;
+            padding-left: 0;
+            border-left: 2px solid transparent;
+            transition:
+                border-color 0.2s ease,
+                background-color 0.2s ease,
+                padding-left 0.2s ease;
         }
         .post-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            border-left-color: var(--accent);
+            background-color: var(--paper-alt);
+            padding-left: 1rem;
+        }
+        /* Ensure the border doesn't double up with the bottom rule */
+        .post-card:hover + .post-card {
+            border-top-color: transparent;
         }
 
-        /* Tag pill */
+        /* ── Tag pill ───────────────────────────────────────────────── */
         .tag-pill {
             display: inline-block;
             padding: 2px 10px;
             border: 1px solid var(--rule);
             border-radius: 2px;
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-family: 'JetBrains Mono', monospace;
             letter-spacing: 0.08em;
             text-transform: lowercase;
             color: var(--ink-soft);
             text-decoration: none;
-            transition: border-color 0.1s, color 0.1s;
+            transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+            white-space: nowrap;
         }
         .tag-pill:hover {
             border-color: var(--accent);
             color: var(--accent);
+            background-color: var(--accent-dim);
         }
 
-        /* Status badge */
+        /* ── Badges ─────────────────────────────────────────────────── */
         .badge-draft {
+            display: inline-block;
             background: #fef9c3;
             color: #854d0e;
-            font-size: 0.65rem;
+            font-size: 0.62rem;
             font-family: 'JetBrains Mono', monospace;
             padding: 2px 8px;
             border-radius: 2px;
             text-transform: uppercase;
             letter-spacing: 0.1em;
+            white-space: nowrap;
         }
         .badge-published {
+            display: inline-block;
             background: #dcfce7;
             color: #166534;
-            font-size: 0.65rem;
+            font-size: 0.62rem;
             font-family: 'JetBrains Mono', monospace;
             padding: 2px 8px;
             border-radius: 2px;
             text-transform: uppercase;
             letter-spacing: 0.1em;
+            white-space: nowrap;
         }
 
-        /* Form inputs */
+        /* ── Form field ─────────────────────────────────────────────── */
         .field {
             width: 100%;
             background: white;
             border: 1px solid var(--rule);
             border-radius: 2px;
             padding: 0.65rem 0.85rem;
-            font-family: 'Source Serif 4', serif;
-            font-size: 1rem;
+            font-family: 'Source Serif 4', Georgia, serif;
+            /* max(1rem, 16px) prevents iOS Safari from zooming the page on focus */
+            font-size: max(1rem, 16px);
             color: var(--ink);
-            transition: border-color 0.15s;
+            transition: border-color 0.15s, box-shadow 0.15s;
             outline: none;
+            display: block;
         }
         .field:focus {
             border-color: var(--ink);
+            box-shadow: 0 0 0 3px rgba(26, 26, 24, 0.06);
         }
-        .field::placeholder {
-            color: var(--ink-muted);
+        .field::placeholder { color: var(--ink-muted); }
+
+        /* ── Buttons ────────────────────────────────────────────────── */
+        /* All three share a common base — inline-flex so min-height
+           actually centres content, vertical-align so they sit on the
+           same baseline when used next to each other inline. */
+        .btn-primary,
+        .btn-ghost,
+        .btn-danger {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            border-radius: 2px;
+            cursor: pointer;
+            text-decoration: none;
+            white-space: nowrap;
+            min-height: 44px;
+            vertical-align: middle;
+            /* Shared transition — each button adds its own properties below */
+            transition: background 0.15s, color 0.15s, border-color 0.15s,
+                        box-shadow 0.15s, transform 0.1s;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        /* Primary button */
+        /* Subtle press effect on all buttons */
+        .btn-primary:active,
+        .btn-ghost:active,
+        .btn-danger:active {
+            transform: translateY(1px);
+        }
+
         .btn-primary {
             background: var(--ink);
             color: var(--paper);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            padding: 0.7rem 1.8rem;
-            border: none;
-            border-radius: 2px;
-            cursor: pointer;
-            transition: background 0.15s;
-            text-decoration: none;
-            display: inline-block;
+            font-size: 0.75rem;
+            padding: 0.65rem 1.8rem;
+            border: 1px solid var(--ink);
+            box-shadow: var(--shadow-sm);
         }
         .btn-primary:hover {
             background: var(--accent);
+            border-color: var(--accent);
+            color: var(--paper);
+            box-shadow: var(--shadow-md);
         }
 
-        /* Ghost button */
         .btn-ghost {
             background: transparent;
             color: var(--ink);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
+            font-size: 0.72rem;
             padding: 0.6rem 1.4rem;
             border: 1px solid var(--rule);
-            border-radius: 2px;
-            cursor: pointer;
-            transition: border-color 0.15s, color 0.15s;
-            text-decoration: none;
-            display: inline-block;
         }
         .btn-ghost:hover {
-            border-color: var(--ink);
+            border-color: var(--ink-soft);
+            background: var(--paper-alt);
+            color: var(--ink);
         }
 
-        /* Danger button */
         .btn-danger {
             background: transparent;
             color: var(--accent);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
+            font-size: 0.72rem;
             padding: 0.6rem 1.4rem;
             border: 1px solid #e8d0cc;
-            border-radius: 2px;
-            cursor: pointer;
-            transition: background 0.15s, color 0.15s;
-            text-decoration: none;
-            display: inline-block;
         }
         .btn-danger:hover {
             background: var(--accent);
+            border-color: var(--accent);
             color: white;
         }
 
-        /* Alert / error banner */
+        /* ── Alerts ─────────────────────────────────────────────────── */
         .alert-error {
             background: #fef2f2;
             border-left: 3px solid var(--accent);
@@ -217,6 +250,7 @@
             font-size: 0.9rem;
             color: var(--accent);
             margin-bottom: 1.5rem;
+            border-radius: 0 2px 2px 0;
         }
         .alert-success {
             background: #f0fdf4;
@@ -225,123 +259,322 @@
             font-size: 0.9rem;
             color: var(--accent-alt);
             margin-bottom: 1.5rem;
+            border-radius: 0 2px 2px 0;
         }
 
-        /* Prose styles for post body */
+        /* ── Prose ──────────────────────────────────────────────────── */
         .prose {
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             line-height: 1.85;
             color: var(--ink);
         }
-        .prose p { margin-bottom: 1.5rem; }
-        .prose p:last-child { margin-bottom: 0; }
-
-        /* Page transition fade-in */
-        main {
-            animation: fadeIn 0.25s ease;
+        .prose p                { margin-bottom: 1.5rem; }
+        .prose p:last-child     { margin-bottom: 0; }
+        .prose h2               { font-size: 1.5rem;  margin: 2rem 0 0.75rem; }
+        .prose h3               { font-size: 1.2rem;  margin: 1.75rem 0 0.6rem; }
+        .prose ul, .prose ol    { padding-left: 1.5rem; margin-bottom: 1.5rem; }
+        .prose li               { margin-bottom: 0.35rem; }
+        .prose blockquote {
+            border-left: 3px solid var(--rule);
+            padding-left: 1rem;
+            color: var(--ink-soft);
+            font-style: italic;
+            margin: 1.5rem 0;
         }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to   { opacity: 1; transform: translateY(0); }
+        .prose code {
+            background: var(--paper-alt);
+            padding: 0.15em 0.4em;
+            border-radius: 2px;
+            font-size: 0.88em;
         }
+        .prose pre {
+            background: var(--ink);
+            color: var(--paper);
+            padding: 1.25rem;
+            border-radius: 3px;
+            overflow-x: auto;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            box-shadow: var(--shadow-sm);
+        }
+        .prose pre code {
+            background: none;
+            padding: 0;
+            font-size: inherit;
+            color: inherit;
+        }
+        .prose a {
+            color: var(--accent);
+            text-underline-offset: 3px;
+            text-decoration-thickness: 1px;
+        }
+        .prose a:hover { text-decoration-thickness: 2px; }
+        .prose img { border-radius: 3px; margin: 1.5rem 0; }
+        .prose hr  { border: none; border-top: 1px solid var(--rule); margin: 2rem 0; }
 
-        /* Nav link */
+        /* ── Nav link ───────────────────────────────────────────────── */
         .nav-link {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             color: var(--ink-soft);
             text-decoration: none;
-            transition: color 0.1s;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.2rem 0;
+            /* Underline grows in from left on hover */
+            background-image: linear-gradient(var(--accent), var(--accent));
+            background-position: 0% 100%;
+            background-repeat: no-repeat;
+            background-size: 0% 1px;
+            transition: color 0.15s, background-size 0.2s ease;
         }
-        .nav-link:hover { color: var(--accent); }
+        .nav-link:hover {
+            color: var(--accent);
+            background-size: 100% 1px;
+        }
 
-        /* HTMX loading indicator */
-        .htmx-indicator {
-            opacity: 0;
-            transition: opacity 0.2s;
+        /* ── Mobile menu ────────────────────────────────────────────── */
+        .mobile-menu {
+            display: grid;
+            grid-template-rows: 0fr;
+            background: var(--paper);
+            border-top: 1px solid transparent;
+            transition: grid-template-rows 0.25s ease, border-color 0.25s ease;
+            overflow: hidden;
         }
+        .mobile-menu > .mobile-menu-inner {
+            overflow: hidden;
+        }
+        .mobile-menu.open {
+            grid-template-rows: 1fr;
+            border-top-color: var(--rule);
+        }
+
+        .mobile-menu a,
+        .mobile-menu button {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--ink-soft);
+            text-decoration: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.8rem 1.25rem;
+            text-align: left;
+            transition: color 0.1s, background-color 0.1s;
+            display: block;
+            width: 100%;
+        }
+        .mobile-menu a:hover,
+        .mobile-menu button:hover {
+            color: var(--accent);
+            background-color: var(--paper-alt);
+        }
+
+        /* Hamburger icon */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 2px;
+            transition: background-color 0.15s;
+        }
+        .hamburger:hover { background-color: var(--paper-alt); }
+        .hamburger span {
+            display: block;
+            width: 22px;
+            height: 2px;
+            background: var(--ink);
+            border-radius: 1px;
+            transition: transform 0.22s ease, opacity 0.15s ease;
+        }
+        .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+        .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        @media (max-width: 639px) {
+            .hamburger { display: flex; }
+            .desktop-nav { display: none !important; }
+        }
+
+        /* ── HTMX indicator ─────────────────────────────────────────── */
+        .htmx-indicator { opacity: 0; transition: opacity 0.2s; }
         .htmx-request .htmx-indicator,
-        .htmx-request.htmx-indicator {
-            opacity: 1;
+        .htmx-request.htmx-indicator { opacity: 1; }
+
+        /* ── Page fade-in ───────────────────────────────────────────── */
+        main { animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
 
     <!-- ================================================================
-         MASTHEAD — editorial newspaper-style header
+         HEADER
     ================================================================ -->
-    <header style="background: var(--paper); padding-top: 2rem;">
-        <div style="max-width: 860px; margin: 0 auto; padding: 0 1.5rem;">
+    <header style="background:var(--paper); padding-top:1.5rem;">
+        <div class="container">
 
-            <!-- Top bar: date left, nav right -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--ink-muted); letter-spacing: 0.05em;">
-                    <!-- Go's time formatting is unique: you use a reference time Mon Jan 2 15:04:05 MST 2006 -->
-                    <!-- In templates we can't call time.Now() directly, so we pass it via context or just hardcode the format hint -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.68rem;
+                             color:var(--ink-muted); letter-spacing:0.05em;">
                     est. 2026 &nbsp;·&nbsp; goblog
                 </span>
-                <nav style="display: flex; gap: 1.5rem; align-items: center;">
+
+                <!-- Desktop nav -->
+                <nav class="desktop-nav" style="display:flex; gap:1.5rem; align-items:center;">
                     {{if .User}}
-                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--ink-muted);">
+                        <a href="/u/{{.User.Username}}" class="nav-link"
+                           style="color:var(--ink-muted);">
                             {{.User.Username}}
-                        </span>
-                        <a href="/dashboard" class="nav-link">Dashboard</a>
-                        <a href="/bookmarks" class="nav-link">Bookmarks</a>
-                        <a href="/new" class="nav-link">Write</a>
-                        <form method="POST" action="/logout" style="margin: 0;">
-                            <button type="submit" class="nav-link" style="background:none; border:none; cursor:pointer; padding:0;">
-                                Logout
-                            </button>
+                        </a>
+                        <a href="/dashboard"  class="nav-link">Dashboard</a>
+                        <a href="/bookmarks"  class="nav-link">Bookmarks</a>
+                        <a href="/new"        class="nav-link">Write</a>
+                        <a href="/settings"   class="nav-link">Settings</a>
+                        <form method="POST" action="/logout" style="margin:0; padding:0;">
+                            <button type="submit" class="nav-link">Logout</button>
                         </form>
                     {{else}}
-                        <a href="/login" class="nav-link">Login</a>
-                        <a href="/register" class="nav-link" style="color: var(--ink);">Register</a>
+                        <a href="/login"    class="nav-link">Login</a>
+                        <a href="/register" class="nav-link" style="color:var(--ink);">Register</a>
                     {{end}}
                 </nav>
+
+                <!-- Hamburger -->
+                <button class="hamburger" id="hamburger"
+                        aria-label="Open menu" aria-expanded="false">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+
             </div>
 
-            <!-- Thick rule -->
-            <hr class="masthead-rule">
+            <hr style="border:none; border-top:2px solid var(--ink); margin:0;">
 
-            <!-- Site name — large typographic treatment -->
-            <div style="text-align: center; padding: 1.25rem 0 1rem;">
-                <a href="/" style="text-decoration: none;">
-                    <h1 style="font-family: 'Playfair Display', serif; font-size: clamp(2.8rem, 6vw, 4.5rem); font-weight: 900; color: var(--ink); letter-spacing: -0.02em; margin: 0;">
+            <div style="text-align:center; padding:1.1rem 0 0.9rem;">
+                <a href="/" style="text-decoration:none;">
+                    <h1 style="font-family:'Playfair Display',serif;
+                               font-size:clamp(2.2rem, 8vw, 4.5rem);
+                               font-weight:900; color:var(--ink);
+                               letter-spacing:-0.02em; line-height:1; margin:0;">
                         GoBlog
                     </h1>
                 </a>
-                <p style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-muted); margin: 0.4rem 0 0;">
+                <p style="font-family:'JetBrains Mono',monospace; font-size:0.65rem;
+                          letter-spacing:0.2em; text-transform:uppercase;
+                          color:var(--ink-muted); margin:0.4rem 0 0;">
                     thoughts in go &nbsp;·&nbsp; written by humans
                 </p>
             </div>
 
-            <!-- Thin rule -->
-            <hr class="masthead-subrule">
+            <hr style="border:none; border-top:1px solid var(--ink); margin:0;">
 
         </div>
+
+        <!-- Mobile nav -->
+        <div class="container" style="padding-top:0; padding-bottom:0;">
+            <nav class="mobile-menu" id="mobile-menu" aria-label="Mobile navigation">
+                <div class="mobile-menu-inner">
+                    {{if .User}}
+                        <a href="/u/{{.User.Username}}"
+                           style="color:var(--ink) !important; font-weight:500;">
+                            {{.User.Username}}
+                        </a>
+                        <a href="/dashboard">Dashboard</a>
+                        <a href="/bookmarks">Bookmarks</a>
+                        <a href="/new">Write</a>
+                        <a href="/settings">Settings</a>
+                        <form method="POST" action="/logout" style="margin:0; padding:0;">
+                            <button type="submit">Logout</button>
+                        </form>
+                    {{else}}
+                        <a href="/login">Login</a>
+                        <a href="/register" style="color:var(--ink) !important;">Register</a>
+                    {{end}}
+                </div>
+            </nav>
+        </div>
+
     </header>
 
     <!-- ================================================================
          MAIN CONTENT
     ================================================================ -->
-    <main style="max-width: 860px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem;">
+    <main class="container" style="padding-top:2.5rem; padding-bottom:5rem;">
         {{block "content" .}}{{end}}
     </main>
 
     <!-- ================================================================
          FOOTER
     ================================================================ -->
-    <footer style="border-top: 1px solid var(--rule); padding: 2rem 1.5rem; text-align: center;">
-        <p style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--ink-muted); letter-spacing: 0.08em;">
+    <footer style="border-top:1px solid var(--rule); padding:2rem 1.25rem; text-align:center;">
+        {{if .User}}
+        <p style="font-family:'JetBrains Mono',monospace; font-size:0.68rem;
+                  color:var(--ink-muted); letter-spacing:0.08em; margin-bottom:0.75rem;">
+            <a href="/u/{{.User.Username}}"
+               style="color:var(--ink-muted); text-decoration:none; transition:color 0.1s;"
+               onmouseover="this.style.color='var(--accent)'"
+               onmouseout="this.style.color='var(--ink-muted)'">
+                @{{.User.Username}}
+            </a>
+            &nbsp;·&nbsp;
+            <a href="/dashboard"
+               style="color:var(--ink-muted); text-decoration:none; transition:color 0.1s;"
+               onmouseover="this.style.color='var(--accent)'"
+               onmouseout="this.style.color='var(--ink-muted)'">
+                dashboard
+            </a>
+            &nbsp;·&nbsp;
+            <a href="/bookmarks"
+               style="color:var(--ink-muted); text-decoration:none; transition:color 0.1s;"
+               onmouseover="this.style.color='var(--accent)'"
+               onmouseout="this.style.color='var(--ink-muted)'">
+                bookmarks
+            </a>
+        </p>
+        {{end}}
+        <p style="font-family:'JetBrains Mono',monospace; font-size:0.68rem;
+                  color:var(--ink-muted); letter-spacing:0.08em; margin:0;">
             built with go &nbsp;·&nbsp; rendered server-side &nbsp;·&nbsp; no trackers
         </p>
     </footer>
 
-    <!-- Local HTMX -->
     <script src="/static/js/htmx.min.js"></script>
+
+    <script>
+        const hamburger  = document.getElementById('hamburger');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        hamburger.addEventListener('click', () => {
+            const isOpen = mobileMenu.classList.toggle('open');
+            hamburger.classList.toggle('open', isOpen);
+            hamburger.setAttribute('aria-expanded', String(isOpen));
+        });
+
+        mobileMenu.querySelectorAll('a, button').forEach(el => {
+            el.addEventListener('click', () => {
+                mobileMenu.classList.remove('open');
+                hamburger.classList.remove('open');
+                hamburger.setAttribute('aria-expanded', 'false');
+            });
+        });
+    </script>
 
 </body>
 </html>

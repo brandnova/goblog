@@ -1,0 +1,29 @@
+{{define "content"}}
+
+<div style="text-align:center; padding:5rem 0; color:var(--ink-muted);">
+
+    <p style="font-family:'Playfair Display',serif; font-size:6rem; font-weight:900;
+              color:var(--rule); line-height:1; margin:0 0 1rem;">
+        404
+    </p>
+
+    <h1 style="font-family:'Playfair Display',serif; font-size:1.75rem;
+               font-weight:700; color:var(--ink); margin:0 0 0.75rem;">
+        Page not found
+    </h1>
+
+    <p style="font-size:1rem; color:var(--ink-muted); margin:0 0 2.5rem;
+              max-width:360px; margin-left:auto; margin-right:auto; line-height:1.6;">
+        The page you're looking for doesn't exist or may have been moved.
+    </p>
+
+    <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+        <a href="/" class="btn-primary">Back to home</a>
+        {{if $.User}}
+        <a href="/dashboard" class="btn-ghost">Your dashboard</a>
+        {{end}}
+    </div>
+
+</div>
+
+{{end}}
