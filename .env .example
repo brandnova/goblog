@@ -1,2 +1,8 @@
 DATABASE_URL=postgres://postgres:yourpassword@localhost:5432/goblog?sslmode=disable
 PORT=8080
+
+OBJ_ENDPOINT=https://objstorage.platform.url
+OBJ_BUCKET=os-buket-key
+OBJ_ACCESS_KEY=obj-access-key
+OBJ_SECRET_KEY=obj-secret-key
+OBJ_CDN_URL=https://3mwvmd.platformobj.url/os-bucket-key

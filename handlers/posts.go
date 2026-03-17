@@ -1,17 +1,32 @@
 package handlers
 
+
+// Use these imports for the file upload version of handleCoverUpload. The simpler version doesn't need "io" or "os".
+
 import (
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"goblog/models"
 )
+
+
+// import (
+// 	"fmt"
+// 	"io"
+// 	"log"
+// 	"net/http"
+// 	"os"
+// 	"strconv"
+// 	"strings"
+// 	"time"
+
+// 	"goblog/models"
+// )
 
 // -----------------------------------------------------------------------
 // Public handlers — no login required
@@ -312,42 +327,56 @@ func getPostForEdit(w http.ResponseWriter, r *http.Request) (*models.Post, bool)
 // Note: on Leapcell's serverless plan the filesystem is read-only except
 // for /tmp. Cover image uploads will silently return "" in that environment.
 // For production file storage, use an object store like Cloudflare R2.
+
+// Use this function for online file upload handling. It saves the file to disk and returns the URL path.
+
 func handleCoverUpload(r *http.Request) string {
 	file, header, err := r.FormFile("cover_image")
 	if err != nil {
-		// No file uploaded — that's fine, cover image is optional
-		return ""
+		return "" // no file uploaded — cover image is optional
 	}
 	defer file.Close()
- 
-	// Make sure the uploads directory exists
-	if err := os.MkdirAll("static/uploads", os.ModePerm); err != nil {
-		log.Println("Could not create uploads directory:", err)
-		return ""
-	}
- 
-	// Prefix the filename with a Unix timestamp to avoid name collisions
-	// e.g. "1714000000-my-photo.jpg"
-	filename := fmt.Sprintf("%d-%s", time.Now().Unix(), header.Filename)
-	savePath := "static/uploads/" + filename
- 
-	dst, err := os.Create(savePath)
-	if err != nil {
-		log.Println("Could not save uploaded file:", err)
-		return ""
-	}
-	defer dst.Close()
- 
-	// io.Copy streams the upload to disk without loading it all into memory
-	// Django parallel: default_storage.save()
-	if _, err := io.Copy(dst, file); err != nil {
-		log.Println("Could not write uploaded file:", err)
-		return ""
-	}
- 
-	// Return the URL path (not the filesystem path) so we can store it in the DB
-	return "/static/uploads/" + filename
+
+	return UploadFile(file, header.Filename)
 }
+
+
+// func handleCoverUpload(r *http.Request) string {
+// 	file, header, err := r.FormFile("cover_image")
+// 	if err != nil {
+// 		// No file uploaded — that's fine, cover image is optional
+// 		return ""
+// 	}
+// 	defer file.Close()
+ 
+// 	// Make sure the uploads directory exists
+// 	if err := os.MkdirAll("static/uploads", os.ModePerm); err != nil {
+// 		log.Println("Could not create uploads directory:", err)
+// 		return ""
+// 	}
+ 
+// 	// Prefix the filename with a Unix timestamp to avoid name collisions
+// 	// e.g. "1714000000-my-photo.jpg"
+// 	filename := fmt.Sprintf("%d-%s", time.Now().Unix(), header.Filename)
+// 	savePath := "static/uploads/" + filename
+ 
+// 	dst, err := os.Create(savePath)
+// 	if err != nil {
+// 		log.Println("Could not save uploaded file:", err)
+// 		return ""
+// 	}
+// 	defer dst.Close()
+ 
+// 	// io.Copy streams the upload to disk without loading it all into memory
+// 	// Django parallel: default_storage.save()
+// 	if _, err := io.Copy(dst, file); err != nil {
+// 		log.Println("Could not write uploaded file:", err)
+// 		return ""
+// 	}
+ 
+// 	// Return the URL path (not the filesystem path) so we can store it in the DB
+// 	return "/static/uploads/" + filename
+// }
 
 // parseTags converts a comma-separated tag string into a cleaned slice.
 // e.g. "Go,  tutorial , web" → ["go", "tutorial", "web"]
