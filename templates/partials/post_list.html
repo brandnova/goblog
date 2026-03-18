@@ -1,0 +1,95 @@
+{{/*
+    Shared infinite-scroll partial.
+    Used by Index, PostsByTag, Profile, and Bookmarks.
+    HTMX appends this to #post-list when the sentinel div scrolls into view.
+
+    Data shape expected:
+      .Posts    []models.Post
+      .NextPage int
+      .HasMore  bool
+      .TagName  string  (optional, tag page only)
+      .ProfileUser      (optional, profile page only)
+      .Query    string  (not used here — search has its own partial)
+*/}}
+
+{{range .Posts}}
+<article class="post-card rounded-lg" style="padding:1.75rem 0 1.75rem 1rem; border-bottom:1px solid var(--rule);">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;">
+        <div style="flex:1;">
+            {{if .Tags}}
+            <div style="margin-bottom:0.5rem; display:flex; gap:0.4rem; flex-wrap:wrap;">
+                {{range .Tags}}
+                <a href="/tag/{{.Name}}" class="tag-pill">{{.Name}}</a>
+                {{end}}
+            </div>
+            {{end}}
+
+            <h2 style="font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:700; margin:0 0 0.5rem;">
+                <a href="/u/{{.AuthorName}}/{{.Slug}}"
+                   style="color:var(--ink); text-decoration:none; transition:color 0.1s;"
+                   onmouseover="this.style.color='var(--accent)'"
+                   onmouseout="this.style.color='var(--ink)'">
+                    {{.Title}}
+                </a>
+            </h2>
+
+            <p style="color:var(--ink-soft); font-size:0.95rem; line-height:1.6; margin:0 0 0.75rem;">
+                {{.Excerpt}}
+            </p>
+
+            <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+                <a href="/u/{{.AuthorName}}"
+                   style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+                          color:var(--ink-muted); text-decoration:none; transition:color 0.1s;"
+                   onmouseover="this.style.color='var(--accent)'"
+                   onmouseout="this.style.color='var(--ink-muted)'">
+                    {{.AuthorName}}
+                </a>
+                <span style="color:var(--rule);">·</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
+                    {{.CreatedAt.Format "Jan 2, 2006"}}
+                </span>
+                <span style="color:var(--rule);">·</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
+                    {{.ReadTime}} min read
+                </span>
+                {{if .ReactionCount}}
+                <span style="color:var(--rule);">·</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
+                    ♥ {{.ReactionCount}}
+                </span>
+                {{end}}
+            </div>
+        </div>
+
+        <a href="/u/{{.AuthorName}}/{{.Slug}}"
+           style="color:var(--ink-muted); text-decoration:none; flex-shrink:0; margin-top:0.25rem;
+                  transition:color 0.15s, transform 0.15s;"
+           onmouseover="this.style.color='var(--accent)'; this.style.transform='translateX(4px)'"
+           onmouseout="this.style.color='var(--ink-muted)'; this.style.transform='translateX(0)'">
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7"/>
+            </svg>
+        </a>
+    </div>
+</article>
+{{end}}
+
+{{if .HasMore}}
+{{/*
+    Sentinel div — HTMX watches this element. When it scrolls into the
+    viewport (intersect), it fires a GET to load the next page and swaps
+    the sentinel itself with the response (outerHTML), which contains the
+    next batch of posts and a new sentinel if there are more pages.
+
+    hx-target="this" + hx-swap="outerHTML" means the sentinel replaces
+    itself with the new content — posts get appended cleanly.
+*/}}
+<div
+    hx-get="?page={{.NextPage}}"
+    hx-trigger="intersect once"
+    hx-target="this"
+    hx-swap="outerHTML"
+    style="height:1px; margin:2rem 0;">
+</div>
+{{end}}

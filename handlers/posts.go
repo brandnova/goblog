@@ -1,11 +1,11 @@
 package handlers
 
-
 // Use these imports for the file upload version of handleCoverUpload. The simpler version doesn't need "io" or "os".
 
 import (
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,11 +14,11 @@ import (
 	"goblog/models"
 )
 
-
 // import (
 // 	"fmt"
 // 	"io"
 // 	"log"
+// 	"math"
 // 	"net/http"
 // 	"os"
 // 	"strconv"
@@ -29,18 +29,56 @@ import (
 // )
 
 // -----------------------------------------------------------------------
+// Pagination helpers
+// -----------------------------------------------------------------------
+
+// pageParam reads the ?page= query parameter, defaulting to 1.
+func pageParam(r *http.Request) int {
+	p, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil || p < 1 {
+		return 1
+	}
+	return p
+}
+
+// hasNextPage returns true if there are more pages after the current one.
+func hasNextPage(total, page int) bool {
+	return page < int(math.Ceil(float64(total)/float64(models.PerPage)))
+}
+
+// -----------------------------------------------------------------------
 // Public handlers — no login required
 // -----------------------------------------------------------------------
 
-// Index lists all published posts (GET /)
-// Django parallel: a ListView with queryset = Post.objects.filter(status='published')
+// Index lists published posts with infinite-scroll pagination (GET /)
+// Page 1 renders the full page. Pages 2+ return only the post list partial
+// which HTMX appends to #post-list via the scroll trigger on the last card.
 func Index(w http.ResponseWriter, r *http.Request) {
-	posts, err := models.GetAllPublished(DB)
+	page := pageParam(r)
+
+	posts, err := models.GetAllPublishedPage(DB, page)
 	if err != nil {
 		http.Error(w, "Could not fetch posts: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	render(w, r, posts, "templates/index.html")
+
+	total, _ := models.CountPublished(DB)
+	more := hasNextPage(total, page)
+
+	data := map[string]any{
+		"Posts":    posts,
+		"Page":     page,
+		"NextPage": page + 1,
+		"HasMore":  more,
+	}
+
+	// HTMX sends HX-Request header on partial requests (infinite scroll)
+	if r.Header.Get("HX-Request") == "true" && page > 1 {
+		renderPartial(w, data, "templates/partials/post_list.html")
+		return
+	}
+
+	render(w, r, data, "templates/index.html", "templates/partials/post_list.html")
 }
 
 // PostDetail shows a single post. (GET /u/{username}/{slug})
@@ -62,57 +100,75 @@ func PostDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	render(w, r, map[string]any{
-		"Post":        post,
-		"Bookmarked":  isBookmarked,
-		"HasReacted":  hasReacted,
+		"Post":          post,
+		"Bookmarked":    isBookmarked,
+		"HasReacted":    hasReacted,
 		"ReactionCount": models.GetReactionCount(DB, post.ID),
+		"IsNew":         r.URL.Query().Get("new") == "1",
+		"IsSaved":       r.URL.Query().Get("saved") == "1",
 	}, "templates/post.html")
 }
 
-// PostsByTag lists all published posts for a given tag (GET /tag/{name})
-// Django parallel: a filtered ListView
+// PostsByTag lists published posts for a tag with infinite scroll (GET /tag/{name})
 func PostsByTag(w http.ResponseWriter, r *http.Request) {
 	tagName := r.PathValue("name")
+	page := pageParam(r)
 
-	posts, err := models.GetPostsByTag(DB, tagName)
+	posts, err := models.GetPostsByTagPage(DB, tagName, page)
 	if err != nil {
 		http.Error(w, "Could not fetch posts", http.StatusInternalServerError)
 		return
 	}
 
-	// We pass both the posts and the tag name so the template can
-	// render a heading like "Posts tagged: go"
-	render(w, r, map[string]any{
-		"Posts":   posts,
-		"TagName": tagName,
-	}, "templates/tag.html")
+	total, _ := models.CountPostsByTag(DB, tagName)
+	more := hasNextPage(total, page)
+
+	data := map[string]any{
+		"Posts":    posts,
+		"TagName":  tagName,
+		"Page":     page,
+		"NextPage": page + 1,
+		"HasMore":  more,
+	}
+
+	if r.Header.Get("HX-Request") == "true" && page > 1 {
+		renderPartial(w, data, "templates/partials/post_list.html")
+		return
+	}
+
+	render(w, r, data, "templates/tag.html", "templates/partials/post_list.html")
 }
 
-// SearchHandler handles HTMX live search (GET /search?q=...)
-//
-// This is an HTMX partial endpoint — it returns an HTML fragment,
-// not a full page. HTMX calls this on every keystroke (debounced)
-// and swaps the result into #search-results on the index page.
-//
-// Django parallel: a view that returns an HttpResponse with a
-// rendered {% include 'partial.html' %} snippet.
+// SearchHandler handles HTMX live search with pagination (GET /search?q=&page=)
+// Page 1 replaces #search-results entirely.
+// Page 2+ appends via the load-more button.
 func SearchHandler(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	page := pageParam(r)
 
 	if query == "" {
-		// Return empty response — HTMX will clear #search-results
 		w.Write([]byte(""))
 		return
 	}
 
-	posts, err := models.SearchPosts(DB, query)
+	posts, err := models.SearchPostsPage(DB, query, page)
 	if err != nil {
 		http.Error(w, "Search failed", http.StatusInternalServerError)
 		return
 	}
 
-	// Render only the partial template — no base.html
-	renderPartial(w, posts, "templates/partials/search_results.html")
+	total, _ := models.CountSearchResults(DB, query)
+	more := hasNextPage(total, page)
+
+	data := map[string]any{
+		"Posts":    posts,
+		"Query":    query,
+		"Page":     page,
+		"NextPage": page + 1,
+		"HasMore":  more,
+	}
+
+	renderPartial(w, data, "templates/partials/search_results.html")
 }
 
 // -----------------------------------------------------------------------
@@ -136,8 +192,8 @@ func CreatePost(w http.ResponseWriter, r *http.Request) {
 
 	title := strings.TrimSpace(r.FormValue("title"))
 	body := strings.TrimSpace(r.FormValue("body"))
-	status := r.FormValue("status")   // "draft" or "published"
-	tagsInput := r.FormValue("tags")  // comma-separated: "go, tutorial, web"
+	status := r.FormValue("status")  // "draft" or "published"
+	tagsInput := r.FormValue("tags") // comma-separated: "go, tutorial, web"
 
 	// Basic validation
 	if title == "" || body == "" {
@@ -189,7 +245,7 @@ func EditPostPage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return // getPostForEdit already wrote the error response
 	}
- 
+
 	render(w, r, map[string]any{
 		"Post": post,
 		"Tags": models.TagsToString(post.Tags), // convert []Tag back to "go, tutorial"
@@ -257,12 +313,12 @@ func DeletePost(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
- 
+
 	if err := models.DeletePost(DB, post.ID); err != nil {
 		http.Error(w, "Could not delete post", http.StatusInternalServerError)
 		return
 	}
- 
+
 	// If this was an HTMX request, return a 200 with empty body —
 	// HTMX will remove the element from the DOM automatically.
 	// Otherwise redirect to home as normal.
@@ -270,7 +326,7 @@ func DeletePost(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
- 
+
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -304,20 +360,20 @@ func getPostForEdit(w http.ResponseWriter, r *http.Request) (*models.Post, bool)
 		http.NotFound(w, r)
 		return nil, false
 	}
- 
+
 	post, err := models.GetPostByID(DB, id)
 	if err != nil {
 		http.NotFound(w, r)
 		return nil, false
 	}
- 
+
 	// Ownership check — only the author can edit or delete their post
 	user := CurrentUser(r)
 	if post.UserID != user.ID {
 		http.Error(w, "You are not allowed to edit this post.", http.StatusForbidden)
 		return nil, false
 	}
- 
+
 	return post, true
 }
 
@@ -326,9 +382,10 @@ func getPostForEdit(w http.ResponseWriter, r *http.Request) (*models.Post, bool)
 //
 // Note: on Leapcell's serverless plan the filesystem is read-only except
 // for /tmp. Cover image uploads will silently return "" in that environment.
-// For production file storage, use an object store like Cloudflare R2.
+// For production file storage, use an object store like Leapcell Object Storage.
 
-// Use this function for online file upload handling. It saves the file to disk and returns the URL path.
+// Use this function for online file upload handling via storage.go (Leapcell Object Storage).
+// Switch to this version when deploying to production.
 
 func handleCoverUpload(r *http.Request) string {
 	file, header, err := r.FormFile("cover_image")
@@ -340,7 +397,6 @@ func handleCoverUpload(r *http.Request) string {
 	return UploadFile(file, header.Filename)
 }
 
-
 // func handleCoverUpload(r *http.Request) string {
 // 	file, header, err := r.FormFile("cover_image")
 // 	if err != nil {
@@ -348,32 +404,32 @@ func handleCoverUpload(r *http.Request) string {
 // 		return ""
 // 	}
 // 	defer file.Close()
- 
+
 // 	// Make sure the uploads directory exists
 // 	if err := os.MkdirAll("static/uploads", os.ModePerm); err != nil {
 // 		log.Println("Could not create uploads directory:", err)
 // 		return ""
 // 	}
- 
+
 // 	// Prefix the filename with a Unix timestamp to avoid name collisions
 // 	// e.g. "1714000000-my-photo.jpg"
 // 	filename := fmt.Sprintf("%d-%s", time.Now().Unix(), header.Filename)
 // 	savePath := "static/uploads/" + filename
- 
+
 // 	dst, err := os.Create(savePath)
 // 	if err != nil {
 // 		log.Println("Could not save uploaded file:", err)
 // 		return ""
 // 	}
 // 	defer dst.Close()
- 
+
 // 	// io.Copy streams the upload to disk without loading it all into memory
 // 	// Django parallel: default_storage.save()
 // 	if _, err := io.Copy(dst, file); err != nil {
 // 		log.Println("Could not write uploaded file:", err)
 // 		return ""
 // 	}
- 
+
 // 	// Return the URL path (not the filesystem path) so we can store it in the DB
 // 	return "/static/uploads/" + filename
 // }
@@ -404,29 +460,41 @@ func notifyNewPost(title, author string) {
 	log.Printf("📨  New post published: \"%s\" by %s\n", title, author)
 }
 
-// Profile shows a user's public page with all their published posts.
-// GET /u/{username}
-// Django parallel: a DetailView on User with related published posts
+// Profile shows a user's public page with paginated posts (GET /u/{username})
 func Profile(w http.ResponseWriter, r *http.Request) {
 	username := r.PathValue("username")
+	page := pageParam(r)
 
-	// Fetch the user so we can show their info even if they have no posts
 	profileUser, err := models.GetUserByUsername(DB, username)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 
-	posts, err := models.GetPublishedByUser(DB, username)
+	posts, err := models.GetPublishedByUserPage(DB, username, page)
 	if err != nil {
 		http.Error(w, "Could not fetch posts", http.StatusInternalServerError)
 		return
 	}
 
-	render(w, r, map[string]any{
+	total, _ := models.CountPublishedByUser(DB, username)
+	more := hasNextPage(total, page)
+
+	data := map[string]any{
 		"ProfileUser": profileUser,
 		"Posts":       posts,
-	}, "templates/profile.html")
+		"Page":        page,
+		"NextPage":    page + 1,
+		"HasMore":     more,
+		"Total":       total,
+	}
+
+	if r.Header.Get("HX-Request") == "true" && page > 1 {
+		renderPartial(w, data, "templates/partials/post_list.html")
+		return
+	}
+
+	render(w, r, data, "templates/profile.html", "templates/partials/post_list.html")
 }
 
 // BookmarkToggle handles HTMX bookmark toggle (POST /post/{id}/bookmark)
@@ -464,15 +532,33 @@ func BookmarkToggle(w http.ResponseWriter, r *http.Request) {
 	</button>`, style, id, label)
 }
 
-// Bookmarks shows the logged-in user's saved posts. (GET /bookmarks)
+// Bookmarks shows the logged-in user's saved posts with pagination. (GET /bookmarks)
 func Bookmarks(w http.ResponseWriter, r *http.Request) {
 	user := CurrentUser(r)
-	posts, err := models.GetBookmarkedPosts(DB, user.ID)
+	page := pageParam(r)
+
+	posts, err := models.GetBookmarkedPostsPage(DB, user.ID, page)
 	if err != nil {
 		http.Error(w, "Could not fetch bookmarks", http.StatusInternalServerError)
 		return
 	}
-	render(w, r, posts, "templates/bookmarks.html")
+
+	total, _ := models.CountBookmarkedPosts(DB, user.ID)
+	more := hasNextPage(total, page)
+
+	data := map[string]any{
+		"Posts":    posts,
+		"Page":     page,
+		"NextPage": page + 1,
+		"HasMore":  more,
+	}
+
+	if r.Header.Get("HX-Request") == "true" && page > 1 {
+		renderPartial(w, data, "templates/partials/post_list.html")
+		return
+	}
+
+	render(w, r, data, "templates/bookmarks.html", "templates/partials/post_list.html")
 }
 
 // ReactionToggle handles HTMX reaction toggle (POST /post/{id}/react)
@@ -512,6 +598,6 @@ func ReactionToggle(w http.ResponseWriter, r *http.Request) {
 // NotFound renders a custom 404 page.
 // Registered in main.go as the fallback for unmatched routes.
 func NotFound(w http.ResponseWriter, r *http.Request) {
-    w.WriteHeader(http.StatusNotFound)
-    render(w, r, nil, "templates/404.html")
+	w.WriteHeader(http.StatusNotFound)
+	render(w, r, nil, "templates/404.html")
 }

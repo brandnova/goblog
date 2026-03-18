@@ -1,7 +1,19 @@
-{{if .}}
+{{/*
+    Search results partial — rendered by SearchHandler.
+    Page 1: replaces #search-results entirely (hx-swap="innerHTML").
+    Page 2+: appended via the load-more button (hx-swap="beforeend" on #search-results).
+
+    Data shape:
+      .Posts    []models.Post
+      .Query    string
+      .NextPage int
+      .HasMore  bool
+*/}}
+
+{{if .Posts}}
 <div style="background:white; border:1px solid var(--rule); border-radius:3px;
             overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.06);">
-    {{range .}}
+    {{range .Posts}}
     <a href="/u/{{.AuthorName}}/{{.Slug}}"
        style="display:block; padding:1rem 1.25rem; border-bottom:1px solid var(--rule);
               text-decoration:none; transition:background 0.1s;"
@@ -12,8 +24,6 @@
             {{.Title}}
         </div>
         <div style="display:flex; gap:0.75rem; align-items:center;">
-            <!-- Author as a separate link — stopPropagation prevents the
-                 outer <a> from also firing when clicking the author name -->
             <a href="/u/{{.AuthorName}}"
                style="font-family:'JetBrains Mono',monospace; font-size:0.65rem;
                       color:var(--ink-muted); text-decoration:none; transition:color 0.1s;"
@@ -23,17 +33,35 @@
                 {{.AuthorName}}
             </a>
             <span style="color:var(--rule);">·</span>
-            <span style="font-family:'JetBrains Mono',monospace; font-size:0.65rem;
-                         color:var(--ink-muted);">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--ink-muted);">
                 {{.ReadTime}} min read
             </span>
         </div>
     </a>
     {{end}}
+
+    {{if .HasMore}}
+    {{/*
+        Search uses a "Load more" button rather than infinite scroll because
+        the search input and infinite scroll compete for focus/scroll events.
+        The button appends results into #search-results with hx-swap="beforeend".
+    */}}
+    <div style="text-align:center; padding:0.75rem;">
+        <button
+            class="btn-ghost"
+            style="font-size:0.68rem; padding:0.4rem 1.2rem; width:100%;"
+            hx-get="/search?q={{.Query}}&page={{.NextPage}}"
+            hx-target="#search-results"
+            hx-swap="beforeend"
+            hx-on::after-request="this.remove()">
+            Load more results
+        </button>
+    </div>
+    {{end}}
 </div>
 {{else}}
 <div style="padding:0.85rem 1rem; font-family:'JetBrains Mono',monospace;
             font-size:0.75rem; color:var(--ink-muted); letter-spacing:0.05em;">
-    No results found.
+    No results found for "{{.Query}}".
 </div>
 {{end}}

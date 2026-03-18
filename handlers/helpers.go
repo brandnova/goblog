@@ -3,6 +3,7 @@ package handlers
 import (
 	"html/template"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"goblog/models"
@@ -10,44 +11,33 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// DB is the shared database connection.
-// It's set once in main.go via handlers.Init(db).
-// Django parallel: Django's db connection being globally available via settings.
+// DB is the shared database connection, set once via Init().
 var DB *sqlx.DB
 
-// Init is called from main.go to give the handlers package access to the DB.
-// Django parallel: AppConfig.ready() — a one-time setup step at startup.
 func Init(db *sqlx.DB) {
 	DB = db
 }
 
 // templateFuncs registers custom functions available in all templates.
-// You call template.New("").Funcs(templateFuncs) before parsing any template.
-//
-// Django parallel: registering a custom template filter with @register.filter.
-// e.g. {{ post.body|markdown }} in Django → {{ markdown .Body }} in Go.
+// Django parallel: custom template filters registered with @register.filter
 var templateFuncs = template.FuncMap{
-	// "markdown" converts a markdown string to safe HTML.
-	// template.HTML tells Go's engine: "trust this string, don't escape it."
-	// Without this wrapper, rendered <p> tags would show as &lt;p&gt; in the browser.
-	// Django parallel: marking output as safe with mark_safe() or the |safe filter.
+	// markdown renders a markdown string as safe HTML.
+	// template.HTML tells Go not to escape the output.
+	// Django parallel: mark_safe() / |safe filter
 	"markdown": func(body string) template.HTML {
-        return template.HTML(models.RenderMarkdown(body))
-    },
-	"upper":   strings.ToUpper,
-    "add":     func(a, b int) int { return a + b },
+		return template.HTML(models.RenderMarkdown(body))
+	},
+	// upper converts a string to uppercase — used for avatar initials.
+	"upper": strings.ToUpper,
+	// add performs integer addition — used in dashboard post count template logic.
+	// Go templates have no arithmetic operators, so we register this as a func.
+	"add": func(a, b int) int { return a + b },
 }
 
-// render parses base.html + the given page template, injects the logged-in
-// user into the template data, and executes base.html as the entry point.
-//
-// This is the single reusable render shortcut used by every page handler.
+// render parses base.html + the given page template (+ any extra partials)
+// and executes base.html as the entry point.
 // Django parallel: Django's render(request, 'template.html', context) shortcut.
-//
-// Usage:
-//
-//	render(w, r, someData, "templates/index.html")
-func render(w http.ResponseWriter, r *http.Request, data any, pageTemplate string) {
+func render(w http.ResponseWriter, r *http.Request, data any, pageTemplate string, extras ...string) {
 	type TemplateData struct {
 		Data any
 		User any
@@ -58,12 +48,8 @@ func render(w http.ResponseWriter, r *http.Request, data any, pageTemplate strin
 		User: CurrentUser(r),
 	}
 
-	// Funcs() must be called before ParseFiles — it registers "markdown"
-	// so templates can call {{ markdown .Data.Body }} without errors.
-	tmpl, err := template.New("").Funcs(templateFuncs).ParseFiles(
-		"templates/base.html",
-		pageTemplate,
-	)
+	files := append([]string{"templates/base.html", pageTemplate}, extras...)
+	tmpl, err := template.New("").Funcs(templateFuncs).ParseFiles(files...)
 	if err != nil {
 		http.Error(w, "Template error: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -76,21 +62,22 @@ func render(w http.ResponseWriter, r *http.Request, data any, pageTemplate strin
 
 // renderPartial renders a template WITHOUT base.html.
 // Used for HTMX endpoints that return HTML fragments, not full pages.
-// The markdown FuncMap is included here too in case a partial ever needs it.
 //
-// Django parallel: HttpResponse(render_to_string('partial.html', context))
-//
-// Usage:
-//
-//	renderPartial(w, someData, "templates/partials/search_results.html")
+// The root cause of the previous search bug was here:
+// template.New("").ParseFiles(f) creates a set where the only named
+// template is the file's base name (e.g. "search_results.html"), not "".
+// Calling tmpl.Execute() was executing the unnamed "" template which
+// doesn't exist, silently rendering nothing.
+// Fix: execute by the file's actual base name.
 func renderPartial(w http.ResponseWriter, data any, partialTemplate string) {
-	tmpl, err := template.New("").Funcs(templateFuncs).ParseFiles(partialTemplate)
+	name := filepath.Base(partialTemplate)
+	tmpl, err := template.New(name).Funcs(templateFuncs).ParseFiles(partialTemplate)
 	if err != nil {
 		http.Error(w, "Template error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if err := tmpl.Execute(w, data); err != nil {
+	if err := tmpl.ExecuteTemplate(w, name, data); err != nil {
 		http.Error(w, "Render error: "+err.Error(), http.StatusInternalServerError)
 	}
 }

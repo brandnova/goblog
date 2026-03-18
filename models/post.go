@@ -32,7 +32,7 @@ type Post struct {
 
 	// Populated manually via JOIN — not real columns on the posts table.
 	// db:"author_name" must match the AS alias in every query that fetches posts.
-	Tags       []Tag  `db:"-"`
+	Tags          []Tag  `db:"-"`
 	AuthorName    string `db:"author_name"`
 	ReactionCount int    `db:"reaction_count"`
 	BookmarkCount int    `db:"bookmark_count"`
@@ -131,9 +131,9 @@ func Slugify(title string) string {
 // e.g. "My Great Post" → "my-great-post-a1b2c3d4"
 // Django parallel: adding unique=True to SlugField and using uuid in pre_save
 func UniqueSlug(title string) string {
-    base := Slugify(title)
-    suffix := uuid.New().String()[:8]
-    return base + "-" + suffix
+	base := Slugify(title)
+	suffix := uuid.New().String()[:8]
+	return base + "-" + suffix
 }
 
 // TagsToString converts a []Tag slice back to a comma-separated string.
@@ -161,7 +161,8 @@ func GetAllPublished(db *sqlx.DB) ([]Post, error) {
 		SELECT
 			p.id, p.user_id, p.title, p.slug, p.body,
 			p.cover_image, p.status, p.created_at, p.updated_at,
-			u.username AS author_name
+			u.username AS author_name,
+			0 AS reaction_count, 0 AS bookmark_count
 		FROM posts p
 		JOIN users u ON u.id = p.user_id
 		WHERE p.status = 'published'
@@ -178,7 +179,8 @@ func GetPostByUserSlug(db *sqlx.DB, username, slug string) (*Post, error) {
 		SELECT
 			p.id, p.user_id, p.title, p.slug, p.body,
 			p.cover_image, p.status, p.created_at, p.updated_at,
-			u.username AS author_name
+			u.username AS author_name,
+			0 AS reaction_count, 0 AS bookmark_count
 		FROM posts p
 		JOIN users u ON u.id = p.user_id
 		WHERE u.username = $1 AND p.slug = $2
@@ -203,7 +205,8 @@ func GetPostByID(db *sqlx.DB, id int) (*Post, error) {
 		SELECT
 			p.id, p.user_id, p.title, p.slug, p.body,
 			p.cover_image, p.status, p.created_at, p.updated_at,
-			u.username AS author_name
+			u.username AS author_name,
+			0 AS reaction_count, 0 AS bookmark_count
 		FROM posts p
 		JOIN users u ON u.id = p.user_id
 		WHERE p.id = $1
@@ -221,9 +224,9 @@ func GetPostByID(db *sqlx.DB, id int) (*Post, error) {
 	return post, nil
 }
 
-// GetPostsByUser returns ALL posts by a user regardless of status.
-// Used by the dashboard to show drafts and published posts together.
-// Django parallel: Post.objects.filter(user=request.user)
+// GetPostsByUser returns ALL posts by a user regardless of status,
+// including reaction and bookmark counts for the dashboard metrics row.
+// Django parallel: Post.objects.filter(user=request.user).annotate(...)
 func GetPostsByUser(db *sqlx.DB, userID int) ([]Post, error) {
 	var posts []Post
 	err := db.Select(&posts, `
@@ -249,7 +252,8 @@ func GetPostsByTag(db *sqlx.DB, tagName string) ([]Post, error) {
 		SELECT
 			p.id, p.user_id, p.title, p.slug, p.body,
 			p.cover_image, p.status, p.created_at, p.updated_at,
-			u.username AS author_name
+			u.username AS author_name,
+			0 AS reaction_count, 0 AS bookmark_count
 		FROM posts p
 		JOIN users u ON u.id = p.user_id
 		JOIN post_tags pt ON pt.post_id = p.id
@@ -270,7 +274,8 @@ func SearchPosts(db *sqlx.DB, query string) ([]Post, error) {
 		SELECT
 			p.id, p.user_id, p.title, p.slug, p.body,
 			p.cover_image, p.status, p.created_at, p.updated_at,
-			u.username AS author_name
+			u.username AS author_name,
+			0 AS reaction_count, 0 AS bookmark_count
 		FROM posts p
 		JOIN users u ON u.id = p.user_id
 		WHERE p.status = 'published'
@@ -282,38 +287,38 @@ func SearchPosts(db *sqlx.DB, query string) ([]Post, error) {
 
 // CreatePost inserts a new post and syncs its tags.
 // RETURNING id is PostgreSQL's way of getting the new row's ID in one query.
-// In SQLite we used result.LastInsertId() — this is cleaner.
 // Django parallel: Post.objects.create(...) followed by post.tags.set(tags)
 func CreatePost(db *sqlx.DB, userID int, title, body, status string, tags []string, coverImage string) (string, error) {
-    slug := UniqueSlug(title)
+	slug := UniqueSlug(title)
 
-    var postID int
-    err := db.QueryRow(`
-        INSERT INTO posts (user_id, title, slug, body, status, cover_image)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id
-    `, userID, title, slug, body, status, coverImage).Scan(&postID)
-    if err != nil {
-        return "", err
-    }
+	var postID int
+	err := db.QueryRow(`
+		INSERT INTO posts (user_id, title, slug, body, status, cover_image)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id
+	`, userID, title, slug, body, status, coverImage).Scan(&postID)
+	if err != nil {
+		return "", err
+	}
 
-    return slug, syncTags(db, postID, tags)
+	return slug, syncTags(db, postID, tags)
 }
 
-// UpdatePost should never regenerate the slug — the slug is permanent
-// from the moment of creation. Changing it would break existing links
-// and cause the unique constraint collision you're seeing.
+// UpdatePost updates a post's content fields and re-syncs its tags.
+// The slug is intentionally NOT updated — it is permanent from creation.
+// Django parallel: post.save() after modifying fields + post.tags.set(tags)
 func UpdatePost(db *sqlx.DB, postID int, title, body, status string, tags []string, coverImage string) error {
-    _, err := db.Exec(`
-        UPDATE posts
-        SET title = $1, body = $2, status = $3,
-            cover_image = $4, updated_at = NOW()
-        WHERE id = $5
-    `, title, body, status, coverImage, postID)
-    if err != nil {
-        return err
-    }
-    return syncTags(db, postID, tags)
+	_, err := db.Exec(`
+		UPDATE posts
+		SET title = $1, body = $2, status = $3,
+		    cover_image = $4, updated_at = NOW()
+		WHERE id = $5
+	`, title, body, status, coverImage, postID)
+	if err != nil {
+		return err
+	}
+
+	return syncTags(db, postID, tags)
 }
 
 // DeletePost removes a post. The ON DELETE CASCADE on post_tags means
@@ -322,6 +327,167 @@ func UpdatePost(db *sqlx.DB, postID int, title, body, status string, tags []stri
 func DeletePost(db *sqlx.DB, postID int) error {
 	_, err := db.Exec("DELETE FROM posts WHERE id = $1", postID)
 	return err
+}
+
+// -----------------------------------------------------------------------
+// Paginated query functions
+// All paginated queries use LIMIT + OFFSET. Page is 1-indexed.
+// -----------------------------------------------------------------------
+
+const PerPage = 10
+
+// GetAllPublishedPage returns one page of published posts.
+func GetAllPublishedPage(db *sqlx.DB, page int) ([]Post, error) {
+	var posts []Post
+	offset := (page - 1) * PerPage
+	err := db.Select(&posts, `
+		SELECT
+			p.id, p.user_id, p.title, p.slug, p.body,
+			p.cover_image, p.status, p.created_at, p.updated_at,
+			u.username AS author_name,
+			0 AS reaction_count, 0 AS bookmark_count
+		FROM posts p
+		JOIN users u ON u.id = p.user_id
+		WHERE p.status = 'published'
+		ORDER BY p.created_at DESC
+		LIMIT $1 OFFSET $2
+	`, PerPage, offset)
+	return posts, err
+}
+
+// CountPublished returns the total number of published posts.
+func CountPublished(db *sqlx.DB) (int, error) {
+	var n int
+	err := db.Get(&n, "SELECT COUNT(*) FROM posts WHERE status = 'published'")
+	return n, err
+}
+
+// GetPublishedByUserPage returns one page of a user's published posts.
+func GetPublishedByUserPage(db *sqlx.DB, username string, page int) ([]Post, error) {
+	var posts []Post
+	offset := (page - 1) * PerPage
+	err := db.Select(&posts, `
+		SELECT
+			p.id, p.user_id, p.title, p.slug, p.body,
+			p.cover_image, p.status, p.created_at, p.updated_at,
+			u.username AS author_name,
+			(SELECT COUNT(*) FROM reactions r WHERE r.post_id = p.id) AS reaction_count,
+			0 AS bookmark_count
+		FROM posts p
+		JOIN users u ON u.id = p.user_id
+		WHERE u.username = $1 AND p.status = 'published'
+		ORDER BY p.created_at DESC
+		LIMIT $2 OFFSET $3
+	`, username, PerPage, offset)
+	return posts, err
+}
+
+// CountPublishedByUser returns the total published post count for a user.
+func CountPublishedByUser(db *sqlx.DB, username string) (int, error) {
+	var n int
+	err := db.Get(&n, `
+		SELECT COUNT(*) FROM posts p
+		JOIN users u ON u.id = p.user_id
+		WHERE u.username = $1 AND p.status = 'published'
+	`, username)
+	return n, err
+}
+
+// GetPostsByTagPage returns one page of posts for a tag.
+func GetPostsByTagPage(db *sqlx.DB, tagName string, page int) ([]Post, error) {
+	var posts []Post
+	offset := (page - 1) * PerPage
+	err := db.Select(&posts, `
+		SELECT
+			p.id, p.user_id, p.title, p.slug, p.body,
+			p.cover_image, p.status, p.created_at, p.updated_at,
+			u.username AS author_name,
+			0 AS reaction_count, 0 AS bookmark_count
+		FROM posts p
+		JOIN users u ON u.id = p.user_id
+		JOIN post_tags pt ON pt.post_id = p.id
+		JOIN tags t ON t.id = pt.tag_id
+		WHERE t.name = $1 AND p.status = 'published'
+		ORDER BY p.created_at DESC
+		LIMIT $2 OFFSET $3
+	`, tagName, PerPage, offset)
+	return posts, err
+}
+
+// CountPostsByTag returns the total post count for a tag.
+func CountPostsByTag(db *sqlx.DB, tagName string) (int, error) {
+	var n int
+	err := db.Get(&n, `
+		SELECT COUNT(*) FROM posts p
+		JOIN post_tags pt ON pt.post_id = p.id
+		JOIN tags t ON t.id = pt.tag_id
+		WHERE t.name = $1 AND p.status = 'published'
+	`, tagName)
+	return n, err
+}
+
+// GetBookmarkedPostsPage returns one page of a user's bookmarked posts.
+func GetBookmarkedPostsPage(db *sqlx.DB, userID int, page int) ([]Post, error) {
+	var posts []Post
+	offset := (page - 1) * PerPage
+	err := db.Select(&posts, `
+		SELECT
+			p.id, p.user_id, p.title, p.slug, p.body,
+			p.cover_image, p.status, p.created_at, p.updated_at,
+			u.username AS author_name,
+			0 AS reaction_count, 0 AS bookmark_count
+		FROM posts p
+		JOIN users u ON u.id = p.user_id
+		JOIN bookmarks b ON b.post_id = p.id
+		WHERE b.user_id = $1 AND p.status = 'published'
+		ORDER BY b.created_at DESC
+		LIMIT $2 OFFSET $3
+	`, userID, PerPage, offset)
+	return posts, err
+}
+
+// CountBookmarkedPosts returns the total bookmark count for a user.
+func CountBookmarkedPosts(db *sqlx.DB, userID int) (int, error) {
+	var n int
+	err := db.Get(&n, `
+		SELECT COUNT(*) FROM bookmarks b
+		JOIN posts p ON p.id = b.post_id
+		WHERE b.user_id = $1 AND p.status = 'published'
+	`, userID)
+	return n, err
+}
+
+// SearchPostsPage returns one page of search results.
+func SearchPostsPage(db *sqlx.DB, query string, page int) ([]Post, error) {
+	var posts []Post
+	like := fmt.Sprintf("%%%s%%", query)
+	offset := (page - 1) * PerPage
+	err := db.Select(&posts, `
+		SELECT
+			p.id, p.user_id, p.title, p.slug, p.body,
+			p.cover_image, p.status, p.created_at, p.updated_at,
+			u.username AS author_name,
+			0 AS reaction_count, 0 AS bookmark_count
+		FROM posts p
+		JOIN users u ON u.id = p.user_id
+		WHERE p.status = 'published'
+		  AND (p.title ILIKE $1 OR p.body ILIKE $1)
+		ORDER BY p.created_at DESC
+		LIMIT $2 OFFSET $3
+	`, like, PerPage, offset)
+	return posts, err
+}
+
+// CountSearchResults returns the total search result count.
+func CountSearchResults(db *sqlx.DB, query string) (int, error) {
+	var n int
+	like := fmt.Sprintf("%%%s%%", query)
+	err := db.Get(&n, `
+		SELECT COUNT(*) FROM posts p
+		WHERE p.status = 'published'
+		  AND (p.title ILIKE $1 OR p.body ILIKE $1)
+	`, like)
+	return n, err
 }
 
 // -----------------------------------------------------------------------
@@ -368,28 +534,26 @@ func syncTags(db *sqlx.DB, postID int, tagNames []string) error {
 // Used on public profile pages — drafts are never shown.
 // Django parallel: Post.objects.filter(user__username=username, status='published')
 func GetPublishedByUser(db *sqlx.DB, username string) ([]Post, error) {
-    var posts []Post
-    err := db.Select(&posts, `
-        SELECT
-            p.id, p.user_id, p.title, p.slug, p.body,
-            p.cover_image, p.status, p.created_at, p.updated_at,
-            u.username AS author_name,
-            (SELECT COUNT(*) FROM reactions r WHERE r.post_id = p.id) AS reaction_count,
-            0 AS bookmark_count
-        FROM posts p
-        JOIN users u ON u.id = p.user_id
-        WHERE u.username = $1 AND p.status = 'published'
-        ORDER BY p.created_at DESC
-    `, username)
-    return posts, err
+	var posts []Post
+	err := db.Select(&posts, `
+		SELECT
+			p.id, p.user_id, p.title, p.slug, p.body,
+			p.cover_image, p.status, p.created_at, p.updated_at,
+			u.username AS author_name,
+			(SELECT COUNT(*) FROM reactions r WHERE r.post_id = p.id) AS reaction_count,
+			0 AS bookmark_count
+		FROM posts p
+		JOIN users u ON u.id = p.user_id
+		WHERE u.username = $1 AND p.status = 'published'
+		ORDER BY p.created_at DESC
+	`, username)
+	return posts, err
 }
 
 // ToggleBookmark adds or removes a bookmark. Returns true if now bookmarked.
-// The INSERT ... ON CONFLICT DO DELETE pattern is a clean upsert-style toggle.
 // Django parallel: bookmark, created = Bookmark.objects.get_or_create(...)
 //                  if not created: bookmark.delete()
 func ToggleBookmark(db *sqlx.DB, userID, postID int) (bool, error) {
-	// Try to insert — if it already exists, delete it instead
 	var exists bool
 	db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM bookmarks WHERE user_id=$1 AND post_id=$2)", userID, postID)
 
@@ -416,7 +580,8 @@ func GetBookmarkedPosts(db *sqlx.DB, userID int) ([]Post, error) {
 		SELECT
 			p.id, p.user_id, p.title, p.slug, p.body,
 			p.cover_image, p.status, p.created_at, p.updated_at,
-			u.username AS author_name
+			u.username AS author_name,
+			0 AS reaction_count, 0 AS bookmark_count
 		FROM posts p
 		JOIN users u ON u.id = p.user_id
 		JOIN bookmarks b ON b.post_id = p.id

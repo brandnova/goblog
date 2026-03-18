@@ -6,8 +6,10 @@
     <a href="/"
        style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; letter-spacing:0.08em;
               text-transform:uppercase; color:var(--ink-muted); text-decoration:none;
-              display:inline-flex; align-items:center; gap:0.4rem; margin-bottom:1.25rem; transition:color 0.1s;"
-       onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink-muted)'">
+              display:inline-flex; align-items:center; gap:0.4rem; margin-bottom:1.25rem;
+              transition:color 0.1s;"
+       onmouseover="this.style.color='var(--accent)'"
+       onmouseout="this.style.color='var(--ink-muted)'">
         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
@@ -25,47 +27,8 @@
 </div>
 
 {{if .Posts}}
-    <div style="display:flex; flex-direction:column;">
-        {{range .Posts}}
-        <article class="post-card rounded-lg" style="padding:1.75rem 0; border-bottom:1px solid var(--rule);">
-
-            <h2 style="font-family:'Playfair Display',serif; font-size:1.4rem;
-                       font-weight:700; margin:0 0 0.5rem;">
-                <a href="/u/{{.AuthorName}}/{{.Slug}}"
-                   style="color:var(--ink); text-decoration:none; transition:color 0.1s;"
-                   onmouseover="this.style.color='var(--accent)'"
-                   onmouseout="this.style.color='var(--ink)'">
-                    {{.Title}}
-                </a>
-            </h2>
-
-            <p style="color:var(--ink-soft); font-size:0.95rem; line-height:1.6; margin:0 0 0.75rem;">
-                {{.Excerpt}}
-            </p>
-
-            <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center;">
-                <!-- Author name as clickable link -->
-                <a href="/u/{{.AuthorName}}"
-                   style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
-                          color:var(--ink-muted); text-decoration:none; transition:color 0.1s;"
-                   onmouseover="this.style.color='var(--accent)'"
-                   onmouseout="this.style.color='var(--ink-muted)'">
-                    {{.AuthorName}}
-                </a>
-                <span style="color:var(--rule);">·</span>
-                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
-                             color:var(--ink-muted);">
-                    {{.CreatedAt.Format "Jan 2, 2006"}}
-                </span>
-                <span style="color:var(--rule);">·</span>
-                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
-                             color:var(--ink-muted);">
-                    {{.ReadTime}} min read
-                </span>
-            </div>
-
-        </article>
-        {{end}}
+    <div id="post-list">
+        {{template "post_list.html" .}}
     </div>
 {{else}}
     <div style="text-align:center; padding:4rem 0; color:var(--ink-muted);">

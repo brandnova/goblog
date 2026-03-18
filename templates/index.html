@@ -1,106 +1,51 @@
 {{define "content"}}
 
-<!-- Live search input -->
-<div style="margin-bottom: 2.5rem;">
-    <div style="position: relative;">
+<!-- Live search -->
+<div style="margin-bottom:2.5rem;">
+    <div style="position:relative;">
         <input
             type="text"
             name="q"
             placeholder="Search posts…"
             class="field"
-            style="padding-left: 2.5rem; font-size: 0.95rem;"
+            style="padding-left:2.5rem; font-size:0.95rem;"
             hx-get="/search"
             hx-target="#search-results"
             hx-trigger="keyup changed delay:300ms"
             hx-indicator="#search-spinner"
             autocomplete="off"
         >
-        <!-- Search icon -->
-        <svg style="position:absolute; left:0.8rem; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--ink-muted);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+        <svg style="position:absolute; left:0.8rem; top:50%; transform:translateY(-50%);
+                    width:16px; height:16px; color:var(--ink-muted);"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
         </svg>
-        <!-- HTMX loading spinner — visible only during request -->
-        <span id="search-spinner" class="htmx-indicator" style="position:absolute; right:0.8rem; top:50%; transform:translateY(-50%); font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--ink-muted); letter-spacing:0.1em;">
+        <span id="search-spinner" class="htmx-indicator"
+              style="position:absolute; right:0.8rem; top:50%; transform:translateY(-50%);
+                     font-family:'JetBrains Mono',monospace; font-size:0.65rem;
+                     color:var(--ink-muted); letter-spacing:0.1em;">
             searching…
         </span>
     </div>
-    <!-- HTMX drops search results here; empty by default -->
-    <div id="search-results" style="margin-top: 0.5rem;"></div>
+    <div id="search-results" style="margin-top:0.5rem;"></div>
 </div>
 
-<!-- Section label -->
 <div class="section-rule">Latest Posts</div>
 
-{{if .Data}}
-    <!-- Post list -->
-    <div style="display: flex; flex-direction: column; gap: 0;">
-        {{range .Data}}
-        <article class="post-card rounded-lg" style="padding: 1.75rem 0; border-bottom: 1px solid var(--rule);">
-            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;">
-                <div style="flex: 1;">
-                    <!-- Tags row -->
-                    {{if .Tags}}
-                    <div style="margin-bottom: 0.5rem; display: flex; gap: 0.4rem; flex-wrap: wrap;">
-                        {{range .Tags}}
-                        <a href="/tag/{{.Name}}" class="tag-pill">{{.Name}}</a>
-                        {{end}}
-                    </div>
-                    {{end}}
-
-                    <!-- Title -->
-                    <h2 style="font-family:'Playfair Display',serif; font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem;">
-                        <a href="/u/{{.AuthorName}}/{{.Slug}}" style="color: var(--ink); text-decoration: none; transition: color 0.1s;"
-                           onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink)'">
-                            {{.Title}}
-                        </a>
-                    </h2>
-
-                    <!-- Excerpt -->
-                    <p style="color: var(--ink-soft); font-size: 0.95rem; line-height: 1.6; margin: 0 0 0.75rem;">
-                        {{.Excerpt}}
-                    </p>
-
-                    <!-- Meta row -->
-                    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-                        <!-- Author name — clickable link to profile -->
-                        <a href="/u/{{.AuthorName}}"
-                           style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;
-                                  color:var(--ink-muted); text-decoration:none; transition:color 0.1s;"
-                           onmouseover="this.style.color='var(--accent)'"
-                           onmouseout="this.style.color='var(--ink-muted)'">
-                            {{.AuthorName}}
-                        </a>
-                        <span style="color:var(--rule);">·</span>
-                        <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
-                            {{.CreatedAt.Format "Jan 2, 2006"}}
-                        </span>
-                        <span style="color:var(--rule);">·</span>
-                        <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
-                            {{.ReadTime}} min read
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Arrow -->
-                <a href="/u/{{.AuthorName}}/{{.Slug}}" style="color:var(--ink-muted); text-decoration:none; flex-shrink:0; margin-top:0.25rem; transition:color 0.15s, transform 0.15s;"
-                   onmouseover="this.style.color='var(--accent)'; this.style.transform='translateX(4px)'"
-                   onmouseout="this.style.color='var(--ink-muted)'; this.style.transform='translateX(0)'">
-                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7"/>
-                    </svg>
-                </a>
-            </div>
-        </article>
-        {{end}}
+{{if .Data.Posts}}
+    <div id="post-list">
+        {{template "post_list.html" .Data}}
     </div>
-
 {{else}}
-    <!-- Empty state -->
-    <div style="text-align: center; padding: 5rem 0; color: var(--ink-muted);">
-        <svg style="width:48px; height:48px; margin: 0 auto 1.5rem; display:block; opacity:0.3;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+    <div style="text-align:center; padding:5rem 0; color:var(--ink-muted);">
+        <svg style="width:48px; height:48px; margin:0 auto 1.5rem; display:block; opacity:0.3;"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
         </svg>
-        <p style="font-family:'JetBrains Mono',monospace; font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:1.5rem;">
+        <p style="font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+                  letter-spacing:0.1em; text-transform:uppercase; margin-bottom:1.5rem;">
             No posts published yet
         </p>
         {{if $.User}}
