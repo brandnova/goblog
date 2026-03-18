@@ -67,6 +67,12 @@
             Updated {{.UpdatedAt.Format "Jan 2, 2006"}}
         </span>
         {{end}}
+        {{if gt $.Data.ReactionCount 0}}
+        <span style="color:var(--rule);">·</span>
+        <span style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--ink-muted);">
+            ♥ {{$.Data.ReactionCount}}
+        </span>
+        {{end}}
     </div>
 
     {{if .CoverImage}}

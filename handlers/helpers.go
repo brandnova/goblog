@@ -32,6 +32,10 @@ var templateFuncs = template.FuncMap{
 	// add performs integer addition — used in dashboard post count template logic.
 	// Go templates have no arithmetic operators, so we register this as a func.
 	"add": func(a, b int) int { return a + b },
+	// hasPrefix checks if a string starts with a given prefix.
+	// Used in base.html to highlight the active nav link for profile pages:
+	// {{if hasPrefix .Path "/u/"}} nav-link-active {{end}}
+	"hasPrefix": strings.HasPrefix,
 }
 
 // render parses base.html + the given page template (+ any extra partials)
@@ -43,12 +47,22 @@ func render(w http.ResponseWriter, r *http.Request, data any, pageTemplate strin
 		User      any
 		CSRFToken string
 		PageTitle string
+		Path      string // current URL path for nav active state
+		UserPath  string // logged-in user's own profile path e.g. /u/nova
+	}
+
+	currentUser := CurrentUser(r)
+	userPath := ""
+	if currentUser != nil {
+		userPath = "/u/" + currentUser.Username
 	}
 
 	td := TemplateData{
 		Data:      data,
-		User:      CurrentUser(r),
+		User:      currentUser,
 		CSRFToken: CSRFToken(r),
+		Path:      r.URL.Path,
+		UserPath:  userPath,
 	}
 
 	files := append([]string{"templates/base.html", pageTemplate}, extras...)
@@ -71,13 +85,23 @@ func renderWithTitle(w http.ResponseWriter, r *http.Request, data any, title str
 		User      any
 		CSRFToken string
 		PageTitle string
+		Path      string // current URL path for nav active state
+		UserPath  string // logged-in user's own profile path e.g. /u/nova
+	}
+
+	currentUser := CurrentUser(r)
+	userPath := ""
+	if currentUser != nil {
+		userPath = "/u/" + currentUser.Username
 	}
 
 	td := TemplateData{
 		Data:      data,
-		User:      CurrentUser(r),
+		User:      currentUser,
 		CSRFToken: CSRFToken(r),
 		PageTitle: title,
+		Path:      r.URL.Path,
+		UserPath:  userPath,
 	}
 
 	files := append([]string{"templates/base.html", pageTemplate}, extras...)

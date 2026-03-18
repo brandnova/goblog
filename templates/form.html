@@ -50,11 +50,12 @@
                       margin-bottom:0.5rem;">
             Tags
         </label>
-        <input type="text" name="tags" class="field"
+        <input type="text" name="tags" id="tags-input" class="field"
                placeholder="go, tutorial, web"
                value="{{if .Data}}{{if .Data.Post}}{{.Data.Tags}}{{end}}{{end}}">
         <p style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--ink-muted); margin-top:0.4rem;">
-            Comma-separated.
+            Comma-separated &nbsp;·&nbsp; max 5 tags &nbsp;·&nbsp;
+            <span id="tag-count" style="color:var(--ink);">0</span>/5
         </p>
     </div>
 
@@ -122,4 +123,26 @@
 
 </form>
 
+
+<script>
+    (function() {
+        const input = document.getElementById('tags-input');
+        const counter = document.getElementById('tag-count');
+        if (!input || !counter) return;
+
+        function countTags(val) {
+            if (!val.trim()) return 0;
+            return val.split(',').map(t => t.trim()).filter(t => t.length > 0).length;
+        }
+
+        function update() {
+            const n = countTags(input.value);
+            counter.textContent = n;
+            counter.style.color = n > 5 ? 'var(--accent)' : 'var(--ink)';
+        }
+
+        input.addEventListener('input', update);
+        update(); // run on page load for edit form pre-fill
+    })();
+</script>
 {{end}}

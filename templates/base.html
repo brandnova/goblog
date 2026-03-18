@@ -9,420 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/tailwind.css">
-
-    <style>
-        /* ── Design tokens ─────────────────────────────────────────── */
-        :root {
-            --ink:         #1a1a18;
-            --ink-soft:    #4a4a45;
-            --ink-muted:   #8a8a82;
-            --paper:       #faf9f6;
-            --paper-alt:   #f2f0eb;
-            --paper-hover: #ede9e2;   /* card hover background */
-            --rule:        #e0ddd6;
-            --accent:      #c8402a;
-            --accent-dim:  rgba(200, 64, 42, 0.08); /* accent tint for hover states */
-            --accent-alt:  #2a6e5e;
-            --shadow-sm:   0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-            --shadow-md:   0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-        }
-
-        /* ── Reset ──────────────────────────────────────────────────── */
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            background-color: var(--paper);
-            color: var(--ink);
-            font-family: 'Source Serif 4', Georgia, serif;
-            font-size: 18px;
-            line-height: 1.7;
-            -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
-        }
-
-        h1, h2, h3, h4 {
-            font-family: 'Playfair Display', Georgia, serif;
-            line-height: 1.2;
-        }
-
-        code, pre { font-family: 'JetBrains Mono', monospace; }
-        img { max-width: 100%; height: auto; display: block; }
-
-        /* ── Layout ─────────────────────────────────────────────────── */
-        .container {
-            width: 100%;
-            max-width: 860px;
-            margin: 0 auto;
-            padding: 0 1.25rem;
-        }
-        @media (min-width: 640px) {
-            .container { padding: 0 2rem; }
-        }
-
-        /* ── Section rule ───────────────────────────────────────────── */
-        .section-rule {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            color: var(--ink-muted);
-            font-size: 0.68rem;
-            font-family: 'JetBrains Mono', monospace;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            margin-bottom: 2rem;
-        }
-        .section-rule::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--rule);
-        }
-
-        /* ── Post card ──────────────────────────────────────────────── */
-        /* Uses a left-border accent reveal + background tint instead of
-           translateY lift. More editorial, less "SaaS product card". */
-        .post-card {
-            position: relative;
-            padding-left: 0;
-            border-left: 2px solid transparent;
-            transition:
-                border-color 0.2s ease,
-                background-color 0.2s ease,
-                padding-left 0.2s ease;
-        }
-        .post-card:hover {
-            border-left-color: var(--accent);
-            background-color: var(--paper-alt);
-            padding-left: 1rem;
-        }
-        /* Ensure the border doesn't double up with the bottom rule */
-        .post-card:hover + .post-card {
-            border-top-color: transparent;
-        }
-
-        /* ── Tag pill ───────────────────────────────────────────────── */
-        .tag-pill {
-            display: inline-block;
-            padding: 2px 10px;
-            border: 1px solid var(--rule);
-            border-radius: 2px;
-            font-size: 0.68rem;
-            font-family: 'JetBrains Mono', monospace;
-            letter-spacing: 0.08em;
-            text-transform: lowercase;
-            color: var(--ink-soft);
-            text-decoration: none;
-            transition: border-color 0.15s, color 0.15s, background-color 0.15s;
-            white-space: nowrap;
-        }
-        .tag-pill:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-            background-color: var(--accent-dim);
-        }
-
-        /* ── Badges ─────────────────────────────────────────────────── */
-        .badge-draft {
-            display: inline-block;
-            background: #fef9c3;
-            color: #854d0e;
-            font-size: 0.62rem;
-            font-family: 'JetBrains Mono', monospace;
-            padding: 2px 8px;
-            border-radius: 2px;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            white-space: nowrap;
-        }
-        .badge-published {
-            display: inline-block;
-            background: #dcfce7;
-            color: #166534;
-            font-size: 0.62rem;
-            font-family: 'JetBrains Mono', monospace;
-            padding: 2px 8px;
-            border-radius: 2px;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            white-space: nowrap;
-        }
-
-        /* ── Form field ─────────────────────────────────────────────── */
-        .field {
-            width: 100%;
-            background: white;
-            border: 1px solid var(--rule);
-            border-radius: 2px;
-            padding: 0.65rem 0.85rem;
-            font-family: 'Source Serif 4', Georgia, serif;
-            /* max(1rem, 16px) prevents iOS Safari from zooming the page on focus */
-            font-size: max(1rem, 16px);
-            color: var(--ink);
-            transition: border-color 0.15s, box-shadow 0.15s;
-            outline: none;
-            display: block;
-        }
-        .field:focus {
-            border-color: var(--ink);
-            box-shadow: 0 0 0 3px rgba(26, 26, 24, 0.06);
-        }
-        .field::placeholder { color: var(--ink-muted); }
-
-        /* ── Buttons ────────────────────────────────────────────────── */
-        /* All three share a common base — inline-flex so min-height
-           actually centres content, vertical-align so they sit on the
-           same baseline when used next to each other inline. */
-        .btn-primary,
-        .btn-ghost,
-        .btn-danger {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.4rem;
-            font-family: 'JetBrains Mono', monospace;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            border-radius: 2px;
-            cursor: pointer;
-            text-decoration: none;
-            white-space: nowrap;
-            min-height: 44px;
-            vertical-align: middle;
-            /* Shared transition — each button adds its own properties below */
-            transition: background 0.15s, color 0.15s, border-color 0.15s,
-                        box-shadow 0.15s, transform 0.1s;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        /* Subtle press effect on all buttons */
-        .btn-primary:active,
-        .btn-ghost:active,
-        .btn-danger:active {
-            transform: translateY(1px);
-        }
-
-        .btn-primary {
-            background: var(--ink);
-            color: var(--paper);
-            font-size: 0.75rem;
-            padding: 0.65rem 1.8rem;
-            border: 1px solid var(--ink);
-            box-shadow: var(--shadow-sm);
-        }
-        .btn-primary:hover {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: var(--paper);
-            box-shadow: var(--shadow-md);
-        }
-
-        .btn-ghost {
-            background: transparent;
-            color: var(--ink);
-            font-size: 0.72rem;
-            padding: 0.6rem 1.4rem;
-            border: 1px solid var(--rule);
-        }
-        .btn-ghost:hover {
-            border-color: var(--ink-soft);
-            background: var(--paper-alt);
-            color: var(--ink);
-        }
-
-        .btn-danger {
-            background: transparent;
-            color: var(--accent);
-            font-size: 0.72rem;
-            padding: 0.6rem 1.4rem;
-            border: 1px solid #e8d0cc;
-        }
-        .btn-danger:hover {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: white;
-        }
-
-        /* ── Alerts ─────────────────────────────────────────────────── */
-        .alert-error {
-            background: #fef2f2;
-            border-left: 3px solid var(--accent);
-            padding: 0.85rem 1rem;
-            font-size: 0.9rem;
-            color: var(--accent);
-            margin-bottom: 1.5rem;
-            border-radius: 0 2px 2px 0;
-        }
-        .alert-success {
-            background: #f0fdf4;
-            border-left: 3px solid var(--accent-alt);
-            padding: 0.85rem 1rem;
-            font-size: 0.9rem;
-            color: var(--accent-alt);
-            margin-bottom: 1.5rem;
-            border-radius: 0 2px 2px 0;
-        }
-
-        /* ── Prose ──────────────────────────────────────────────────── */
-        .prose {
-            font-size: 1.05rem;
-            line-height: 1.85;
-            color: var(--ink);
-        }
-        .prose p                { margin-bottom: 1.5rem; }
-        .prose p:last-child     { margin-bottom: 0; }
-        .prose h2               { font-size: 1.5rem;  margin: 2rem 0 0.75rem; }
-        .prose h3               { font-size: 1.2rem;  margin: 1.75rem 0 0.6rem; }
-        .prose ul, .prose ol    { padding-left: 1.5rem; margin-bottom: 1.5rem; }
-        .prose li               { margin-bottom: 0.35rem; }
-        .prose blockquote {
-            border-left: 3px solid var(--rule);
-            padding-left: 1rem;
-            color: var(--ink-soft);
-            font-style: italic;
-            margin: 1.5rem 0;
-        }
-        .prose code {
-            background: var(--paper-alt);
-            padding: 0.15em 0.4em;
-            border-radius: 2px;
-            font-size: 0.88em;
-        }
-        .prose pre {
-            background: var(--ink);
-            color: var(--paper);
-            padding: 1.25rem;
-            border-radius: 3px;
-            overflow-x: auto;
-            margin-bottom: 1.5rem;
-            font-size: 0.85rem;
-            line-height: 1.6;
-            box-shadow: var(--shadow-sm);
-        }
-        .prose pre code {
-            background: none;
-            padding: 0;
-            font-size: inherit;
-            color: inherit;
-        }
-        .prose a {
-            color: var(--accent);
-            text-underline-offset: 3px;
-            text-decoration-thickness: 1px;
-        }
-        .prose a:hover { text-decoration-thickness: 2px; }
-        .prose img { border-radius: 3px; margin: 1.5rem 0; }
-        .prose hr  { border: none; border-top: 1px solid var(--rule); margin: 2rem 0; }
-
-        /* ── Nav link ───────────────────────────────────────────────── */
-        .nav-link {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.72rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--ink-soft);
-            text-decoration: none;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 0.2rem 0;
-            /* Underline grows in from left on hover */
-            background-image: linear-gradient(var(--accent), var(--accent));
-            background-position: 0% 100%;
-            background-repeat: no-repeat;
-            background-size: 0% 1px;
-            transition: color 0.15s, background-size 0.2s ease;
-        }
-        .nav-link:hover {
-            color: var(--accent);
-            background-size: 100% 1px;
-        }
-
-        /* ── Mobile menu ────────────────────────────────────────────── */
-        .mobile-menu {
-            display: grid;
-            grid-template-rows: 0fr;
-            background: var(--paper);
-            border-top: 1px solid transparent;
-            transition: grid-template-rows 0.25s ease, border-color 0.25s ease;
-            overflow: hidden;
-        }
-        .mobile-menu > .mobile-menu-inner {
-            overflow: hidden;
-        }
-        .mobile-menu.open {
-            grid-template-rows: 1fr;
-            border-top-color: var(--rule);
-        }
-
-        .mobile-menu a,
-        .mobile-menu button {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--ink-soft);
-            text-decoration: none;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 0.8rem 1.25rem;
-            text-align: left;
-            transition: color 0.1s, background-color 0.1s;
-            display: block;
-            width: 100%;
-        }
-        .mobile-menu a:hover,
-        .mobile-menu button:hover {
-            color: var(--accent);
-            background-color: var(--paper-alt);
-        }
-
-        /* Hamburger icon */
-        .hamburger {
-            display: none;
-            flex-direction: column;
-            gap: 5px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 8px;
-            border-radius: 2px;
-            transition: background-color 0.15s;
-        }
-        .hamburger:hover { background-color: var(--paper-alt); }
-        .hamburger span {
-            display: block;
-            width: 22px;
-            height: 2px;
-            background: var(--ink);
-            border-radius: 1px;
-            transition: transform 0.22s ease, opacity 0.15s ease;
-        }
-        .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-        .hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
-        .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-
-        @media (max-width: 639px) {
-            .hamburger { display: flex; }
-            .desktop-nav { display: none !important; }
-        }
-
-        /* ── HTMX indicator ─────────────────────────────────────────── */
-        .htmx-indicator { opacity: 0; transition: opacity 0.2s; }
-        .htmx-request .htmx-indicator,
-        .htmx-request.htmx-indicator { opacity: 1; }
-
-        /* ── Settings name grid — stacks on small screens ─────────── */
-        .name-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
-        @media (max-width: 480px) { .name-grid { grid-template-columns:1fr; } }
-
-        /* ── Page fade-in ───────────────────────────────────────────── */
-        main { animation: fadeIn 0.2s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/goblog.css">
 </head>
 <body>
 
@@ -436,27 +23,36 @@
 
                 <span style="font-family:'JetBrains Mono',monospace; font-size:0.68rem;
                              color:var(--ink-muted); letter-spacing:0.05em;">
-                    est. 2026 &nbsp;·&nbsp; goblog
+                    est. 2026 &nbsp;·&nbsp; goblog by BRAND NOVA
                 </span>
 
                 <!-- Desktop nav -->
                 <nav class="desktop-nav" style="display:flex; gap:1.5rem; align-items:center;">
                     {{if .User}}
-                        <a href="/u/{{.User.Username}}" class="nav-link"
+                        {{/* Profile link is active only on the current user's own profile, not other users' */}}
+                        <a href="/u/{{.User.Username}}"
+                           class="nav-link{{if eq .Path .UserPath}} nav-link-active{{end}}"
                            style="color:var(--ink-muted);">
                             {{.User.Username}}
                         </a>
-                        <a href="/dashboard"  class="nav-link">Dashboard</a>
-                        <a href="/bookmarks"  class="nav-link">Bookmarks</a>
-                        <a href="/new"        class="nav-link">Write</a>
-                        <a href="/settings"   class="nav-link">Settings</a>
+                        <a href="/dashboard"
+                           class="nav-link{{if eq .Path "/dashboard"}} nav-link-active{{end}}">Dashboard</a>
+                        <a href="/bookmarks"
+                           class="nav-link{{if eq .Path "/bookmarks"}} nav-link-active{{end}}">Bookmarks</a>
+                        <a href="/new"
+                           class="nav-link{{if eq .Path "/new"}} nav-link-active{{end}}">Write</a>
+                        <a href="/settings"
+                           class="nav-link{{if eq .Path "/settings"}} nav-link-active{{end}}">Settings</a>
                         <form method="POST" action="/logout" style="margin:0; padding:0;">
                             <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
                             <button type="submit" class="nav-link">Logout</button>
                         </form>
                     {{else}}
-                        <a href="/login"    class="nav-link">Login</a>
-                        <a href="/register" class="nav-link" style="color:var(--ink);">Register</a>
+                        <a href="/login"
+                           class="nav-link{{if eq .Path "/login"}} nav-link-active{{end}}">Login</a>
+                        <a href="/register"
+                           class="nav-link{{if eq .Path "/register"}} nav-link-active{{end}}"
+                           style="color:var(--ink);">Register</a>
                     {{end}}
                 </nav>
 
@@ -498,19 +94,26 @@
                 <div class="mobile-menu-inner">
                     {{if .User}}
                         <a href="/u/{{.User.Username}}"
-                           style="color:var(--ink) !important; font-weight:500;">
+                           style="{{if eq .Path .UserPath}}color:var(--accent) !important;{{else}}color:var(--ink) !important;{{end}} font-weight:500;">
                             {{.User.Username}}
                         </a>
-                        <a href="/dashboard">Dashboard</a>
-                        <a href="/bookmarks">Bookmarks</a>
-                        <a href="/new">Write</a>
-                        <a href="/settings">Settings</a>
+                        <a href="/dashboard"
+                           {{if eq .Path "/dashboard"}}style="color:var(--accent);"{{end}}>Dashboard</a>
+                        <a href="/bookmarks"
+                           {{if eq .Path "/bookmarks"}}style="color:var(--accent);"{{end}}>Bookmarks</a>
+                        <a href="/new"
+                           {{if eq .Path "/new"}}style="color:var(--accent);"{{end}}>Write</a>
+                        <a href="/settings"
+                           {{if eq .Path "/settings"}}style="color:var(--accent);"{{end}}>Settings</a>
                         <form method="POST" action="/logout" style="margin:0; padding:0;">
+                            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
                             <button type="submit">Logout</button>
                         </form>
                     {{else}}
-                        <a href="/login">Login</a>
-                        <a href="/register" style="color:var(--ink) !important;">Register</a>
+                        <a href="/login"
+                           {{if eq .Path "/login"}}style="color:var(--accent);"{{end}}>Login</a>
+                        <a href="/register"
+                           {{if eq .Path "/register"}}style="color:var(--accent) !important;"{{else}}style="color:var(--ink) !important;"{{end}}>Register</a>
                     {{end}}
                 </div>
             </nav>
@@ -558,6 +161,10 @@
                   color:var(--ink-muted); letter-spacing:0.08em; margin:0;">
             built with go &nbsp;·&nbsp; rendered server-side &nbsp;·&nbsp; no trackers
         </p>
+        <span style="font-family:'JetBrains Mono',monospace; font-size:0.68rem;
+                     color:var(--ink-muted); letter-spacing:0.05em;">
+            By BRAND NOVA
+        </span>
     </footer>
 
     <script src="/static/js/htmx.min.js"></script>

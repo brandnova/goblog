@@ -43,7 +43,7 @@
                           color:var(--ink-muted); text-decoration:none; transition:color 0.1s;"
                    onmouseover="this.style.color='var(--accent)'"
                    onmouseout="this.style.color='var(--ink-muted)'">
-                    {{.AuthorName}}
+                    @{{.AuthorName}}
                 </a>
                 <span style="color:var(--rule);">·</span>
                 <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
@@ -53,6 +53,12 @@
                 <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">
                     {{.ReadTime}} min read
                 </span>
+                {{if .UpdatedAt.After .CreatedAt}}
+                <span style="color:var(--rule);">·</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--ink-muted);">
+                    Updated {{.UpdatedAt.Format "Jan 2, 2006"}}
+                </span>
+                {{end}}
                 {{if .ReactionCount}}
                 <span style="color:var(--rule);">·</span>
                 <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-muted);">

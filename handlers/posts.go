@@ -213,9 +213,18 @@ func CreatePost(w http.ResponseWriter, r *http.Request) {
 		status = "draft"
 	}
 
-	// Parse tags from comma-separated string into a slice
+	// Parse tags — capped at 5. Extra tags beyond the limit are dropped.
 	// Django parallel: form.cleaned_data['tags']
 	tags := parseTags(tagsInput)
+	if len(strings.Split(strings.TrimSpace(tagsInput), ",")) > 5 && strings.TrimSpace(tagsInput) != "" {
+		render(w, r, map[string]any{
+			"Error": "A post can have at most 5 tags.",
+			"Title": title,
+			"Body":  body,
+			"Tags":  tagsInput,
+		}, "templates/form.html")
+		return
+	}
 
 	// Get the logged-in user from context
 	// Django parallel: request.user
@@ -351,6 +360,8 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not fetch your posts: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// Attach tags so the dashboard can render tag pills per post row
+	models.AttachTags(DB, posts)
 	renderWithTitle(w, r, posts, "Dashboard", "templates/dashboard.html")
 }
 
@@ -447,14 +458,19 @@ func handleCoverUpload(r *http.Request) string {
 // }
 
 // parseTags converts a comma-separated tag string into a cleaned slice.
+// Enforces a maximum of 5 tags — extras are silently dropped.
 // e.g. "Go,  tutorial , web" → ["go", "tutorial", "web"]
 func parseTags(input string) []string {
+	const maxTags = 5
 	raw := strings.Split(input, ",")
 	tags := make([]string, 0, len(raw))
 	for _, t := range raw {
 		t = strings.ToLower(strings.TrimSpace(t))
 		if t != "" {
 			tags = append(tags, t)
+		}
+		if len(tags) >= maxTags {
+			break
 		}
 	}
 	return tags
