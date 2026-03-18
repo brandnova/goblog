@@ -14,12 +14,13 @@ import (
 // RegisterPage renders the blank registration form.
 // GET /register
 func RegisterPage(w http.ResponseWriter, r *http.Request) {
-	render(w, r, nil, "templates/register.html")
+	renderWithTitle(w, r, nil, "Register", "templates/register.html")
 }
 
 // Register processes the registration form submission.
 // POST /register
 func Register(w http.ResponseWriter, r *http.Request) {
+	if !ValidateCSRF(w, r) { return }
 	username := r.FormValue("username")
 	email    := r.FormValue("email")
 	password := r.FormValue("password")
@@ -58,12 +59,13 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("registered") == "1" {
 		data["Success"] = "Account created successfully. Please log in."
 	}
-	render(w, r, data, "templates/login.html")
+	renderWithTitle(w, r, data, "Login", "templates/login.html")
 }
 
 // Login processes the login form submission.
 // POST /login
 func Login(w http.ResponseWriter, r *http.Request) {
+	if !ValidateCSRF(w, r) { return }
 	email    := r.FormValue("email")
 	password := r.FormValue("password")
 
@@ -86,6 +88,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 // Logout destroys the current session and redirects to home.
 // POST /logout
 func Logout(w http.ResponseWriter, r *http.Request) {
+	if !ValidateCSRF(w, r) { return }
 	DestroySession(w, r)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -105,7 +108,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	case "password":
 		data["PasswordSaved"] = true
 	}
-	render(w, r, data, "templates/settings.html")
+	renderWithTitle(w, r, data, "Settings", "templates/settings.html")
 }
 
 // UpdateProfile handles the profile info form (POST /settings/profile).
@@ -113,6 +116,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 // Completely independent of the password form — no password fields touched.
 // Django parallel: UserChangeForm.save()
 func UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	if !ValidateCSRF(w, r) { return }
 	user := CurrentUser(r)
 
 	firstName := r.FormValue("first_name")
@@ -149,6 +153,7 @@ func UpdateProfile(w http.ResponseWriter, r *http.Request) {
 // Only touches the password — profile fields are never read here.
 // Django parallel: PasswordChangeForm.save()
 func UpdatePassword(w http.ResponseWriter, r *http.Request) {
+	if !ValidateCSRF(w, r) { return }
 	user := CurrentUser(r)
 
 	currentPassword := r.FormValue("current_password")

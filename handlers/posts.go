@@ -61,6 +61,7 @@ func Index(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not fetch posts: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	models.AttachTags(DB, posts)
 
 	total, _ := models.CountPublished(DB)
 	more := hasNextPage(total, page)
@@ -99,14 +100,14 @@ func PostDetail(w http.ResponseWriter, r *http.Request) {
 		hasReacted = models.HasReacted(DB, u.ID, post.ID)
 	}
 
-	render(w, r, map[string]any{
+	renderWithTitle(w, r, map[string]any{
 		"Post":          post,
 		"Bookmarked":    isBookmarked,
 		"HasReacted":    hasReacted,
 		"ReactionCount": models.GetReactionCount(DB, post.ID),
 		"IsNew":         r.URL.Query().Get("new") == "1",
 		"IsSaved":       r.URL.Query().Get("saved") == "1",
-	}, "templates/post.html")
+	}, post.Title, "templates/post.html")
 }
 
 // PostsByTag lists published posts for a tag with infinite scroll (GET /tag/{name})
@@ -119,6 +120,7 @@ func PostsByTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not fetch posts", http.StatusInternalServerError)
 		return
 	}
+	models.AttachTags(DB, posts)
 
 	total, _ := models.CountPostsByTag(DB, tagName)
 	more := hasNextPage(total, page)
@@ -156,6 +158,7 @@ func SearchHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Search failed", http.StatusInternalServerError)
 		return
 	}
+	models.AttachTags(DB, posts)
 
 	total, _ := models.CountSearchResults(DB, query)
 	more := hasNextPage(total, page)
@@ -183,6 +186,7 @@ func NewPostPage(w http.ResponseWriter, r *http.Request) {
 // CreatePost handles the post creation form submission (POST /new)
 // Django parallel: CreateView.form_valid()
 func CreatePost(w http.ResponseWriter, r *http.Request) {
+	if !ValidateCSRF(w, r) { return }
 	// Parse multipart form to support file uploads (cover image)
 	// 10 << 20 = 10MB max — like Django's FILE_UPLOAD_MAX_MEMORY_SIZE
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
@@ -255,6 +259,7 @@ func EditPostPage(w http.ResponseWriter, r *http.Request) {
 // UpdatePost handles the edit form submission (POST /edit/{id})
 // Django parallel: UpdateView.form_valid()
 func UpdatePost(w http.ResponseWriter, r *http.Request) {
+	if !ValidateCSRF(w, r) { return }
 	post, ok := getPostForEdit(w, r)
 	if !ok {
 		return
@@ -309,6 +314,13 @@ func UpdatePost(w http.ResponseWriter, r *http.Request) {
 // We use POST not DELETE because HTML forms only support GET and POST.
 // Django parallel: DeleteView
 func DeletePost(w http.ResponseWriter, r *http.Request) {
+	// HTMX-triggered deletes (from dashboard or post page) don't send
+	// hidden form fields, so we skip form-based CSRF for them.
+	// SameSite=Lax on the session cookie protects same-origin HTMX requests.
+	// Only validate CSRF for non-HTMX POST (e.g. JS-disabled fallback).
+	if r.Header.Get("HX-Request") != "true" {
+		if !ValidateCSRF(w, r) { return }
+	}
 	post, ok := getPostForEdit(w, r)
 	if !ok {
 		return
@@ -339,7 +351,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not fetch your posts: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	render(w, r, posts, "templates/dashboard.html")
+	renderWithTitle(w, r, posts, "Dashboard", "templates/dashboard.html")
 }
 
 // -----------------------------------------------------------------------
@@ -476,6 +488,7 @@ func Profile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not fetch posts", http.StatusInternalServerError)
 		return
 	}
+	models.AttachTags(DB, posts)
 
 	total, _ := models.CountPublishedByUser(DB, username)
 	more := hasNextPage(total, page)
@@ -494,7 +507,7 @@ func Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	render(w, r, data, "templates/profile.html", "templates/partials/post_list.html")
+	renderWithTitle(w, r, data, "@"+username, "templates/profile.html", "templates/partials/post_list.html")
 }
 
 // BookmarkToggle handles HTMX bookmark toggle (POST /post/{id}/bookmark)
@@ -542,6 +555,7 @@ func Bookmarks(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not fetch bookmarks", http.StatusInternalServerError)
 		return
 	}
+	models.AttachTags(DB, posts)
 
 	total, _ := models.CountBookmarkedPosts(DB, user.ID)
 	more := hasNextPage(total, page)
@@ -558,7 +572,7 @@ func Bookmarks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	render(w, r, data, "templates/bookmarks.html", "templates/partials/post_list.html")
+	renderWithTitle(w, r, data, "Bookmarks", "templates/bookmarks.html", "templates/partials/post_list.html")
 }
 
 // ReactionToggle handles HTMX reaction toggle (POST /post/{id}/react)

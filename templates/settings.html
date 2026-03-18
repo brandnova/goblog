@@ -28,6 +28,7 @@
 
     <form method="POST" action="/settings/profile"
           style="display:flex; flex-direction:column; gap:1.25rem; margin-bottom:3rem;">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 
         <fieldset style="border:none; padding:0; margin:0; display:flex; flex-direction:column; gap:1.25rem;">
             <legend style="font-family:'JetBrains Mono',monospace; font-size:0.68rem;
@@ -37,7 +38,7 @@
             </legend>
 
             <!-- First + Last name on one row, stacks on mobile -->
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            <div class="name-grid">
                 <div>
                     <label style="display:block; font-family:'JetBrains Mono',monospace;
                                   font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase;
@@ -115,6 +116,7 @@
 
     <form method="POST" action="/settings/password"
           style="display:flex; flex-direction:column; gap:1.25rem;">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 
         <fieldset style="border:none; padding:0; margin:0; display:flex; flex-direction:column; gap:1.25rem;">
             <legend style="font-family:'JetBrains Mono',monospace; font-size:0.68rem;
@@ -165,14 +167,5 @@
     </form>
 
 </div>
-
-<!-- Stack name grid on small screens -->
-<style>
-    @media (max-width: 480px) {
-        form div[style*="grid-template-columns:1fr 1fr"] {
-            grid-template-columns: 1fr !important;
-        }
-    }
-</style>
 
 {{end}}

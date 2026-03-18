@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -28,6 +29,9 @@ func initDB() {
 		username      TEXT NOT NULL UNIQUE,
 		email         TEXT NOT NULL UNIQUE,
 		password_hash TEXT NOT NULL,
+		first_name    TEXT DEFAULT '',
+		last_name     TEXT DEFAULT '',
+		bio           TEXT DEFAULT '',
 		created_at    TIMESTAMPTZ DEFAULT NOW()
 	);
 
@@ -59,22 +63,24 @@ func initDB() {
 		user_id    INTEGER NOT NULL REFERENCES users(id),
 		expires_at TIMESTAMPTZ NOT NULL
 	);
-	
+
 	CREATE TABLE IF NOT EXISTS bookmarks (
-		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+		user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		post_id    INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
 		created_at TIMESTAMPTZ DEFAULT NOW(),
 		PRIMARY KEY (user_id, post_id)
 	);
-	
+
 	CREATE TABLE IF NOT EXISTS reactions (
-		user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		post_id  INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
 		PRIMARY KEY (user_id, post_id)
 	);`
 
 	db.MustExec(schema)
 
+	// Safe migrations — ADD COLUMN IF NOT EXISTS is a no-op if already present.
+	// Run on every startup so new deployments pick up schema changes automatically.
 	migrations := []string{
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT DEFAULT ''`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name  TEXT DEFAULT ''`,
@@ -85,6 +91,28 @@ func initDB() {
 			log.Printf("Migration warning: %v\n", err)
 		}
 	}
+
+	// Session cleanup goroutine — runs every 24 hours and removes all
+	// expired sessions from the table. Without this, the sessions table
+	// grows indefinitely since every login writes a new row.
+	//
+	// Runs in the background so it never blocks startup or requests.
+	// The 'go' keyword means main() returns immediately and this loop
+	// continues for the lifetime of the process.
+	go func() {
+		for {
+			result, err := db.Exec("DELETE FROM sessions WHERE expires_at < NOW()")
+			if err != nil {
+				log.Printf("Session cleanup error: %v\n", err)
+			} else {
+				n, _ := result.RowsAffected()
+				if n > 0 {
+					log.Printf("Session cleanup: removed %d expired session(s)\n", n)
+				}
+			}
+			time.Sleep(24 * time.Hour)
+		}
+	}()
 
 	log.Println("Database ready.")
 }

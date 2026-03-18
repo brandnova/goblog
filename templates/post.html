@@ -48,7 +48,7 @@
                   color:var(--ink-soft); text-decoration:none;"
            onmouseover="this.style.color='var(--accent)'"
            onmouseout="this.style.color='var(--ink-soft)'">
-            @{{.AuthorName}}
+            {{.AuthorName}}
         </a>
         <span style="color:var(--rule);">·</span>
         <span style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--ink-muted);">
@@ -60,6 +60,12 @@
         </span>
         {{if eq .Status "draft"}}
         <span class="badge-draft">Draft</span>
+        {{end}}
+        {{if .UpdatedAt.After .CreatedAt}}
+        <span style="color:var(--rule);">·</span>
+        <span style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--ink-muted);">
+            Updated {{.UpdatedAt.Format "Jan 2, 2006"}}
+        </span>
         {{end}}
     </div>
 

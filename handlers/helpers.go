@@ -39,13 +39,45 @@ var templateFuncs = template.FuncMap{
 // Django parallel: Django's render(request, 'template.html', context) shortcut.
 func render(w http.ResponseWriter, r *http.Request, data any, pageTemplate string, extras ...string) {
 	type TemplateData struct {
-		Data any
-		User any
+		Data      any
+		User      any
+		CSRFToken string
+		PageTitle string
 	}
 
 	td := TemplateData{
-		Data: data,
-		User: CurrentUser(r),
+		Data:      data,
+		User:      CurrentUser(r),
+		CSRFToken: CSRFToken(r),
+	}
+
+	files := append([]string{"templates/base.html", pageTemplate}, extras...)
+	tmpl, err := template.New("").Funcs(templateFuncs).ParseFiles(files...)
+	if err != nil {
+		http.Error(w, "Template error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := tmpl.ExecuteTemplate(w, "base.html", td); err != nil {
+		http.Error(w, "Render error: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// renderWithTitle is like render() but sets the browser tab title.
+// Usage: renderWithTitle(w, r, data, "My Post Title", "templates/post.html")
+func renderWithTitle(w http.ResponseWriter, r *http.Request, data any, title string, pageTemplate string, extras ...string) {
+	type TemplateData struct {
+		Data      any
+		User      any
+		CSRFToken string
+		PageTitle string
+	}
+
+	td := TemplateData{
+		Data:      data,
+		User:      CurrentUser(r),
+		CSRFToken: CSRFToken(r),
+		PageTitle: title,
 	}
 
 	files := append([]string{"templates/base.html", pageTemplate}, extras...)

@@ -336,7 +336,7 @@ func DeletePost(db *sqlx.DB, postID int) error {
 
 const PerPage = 10
 
-// GetAllPublishedPage returns one page of published posts.
+// GetAllPublishedPage returns one page of published posts with reaction counts.
 func GetAllPublishedPage(db *sqlx.DB, page int) ([]Post, error) {
 	var posts []Post
 	offset := (page - 1) * PerPage
@@ -345,7 +345,8 @@ func GetAllPublishedPage(db *sqlx.DB, page int) ([]Post, error) {
 			p.id, p.user_id, p.title, p.slug, p.body,
 			p.cover_image, p.status, p.created_at, p.updated_at,
 			u.username AS author_name,
-			0 AS reaction_count, 0 AS bookmark_count
+			(SELECT COUNT(*) FROM reactions r WHERE r.post_id = p.id) AS reaction_count,
+			0 AS bookmark_count
 		FROM posts p
 		JOIN users u ON u.id = p.user_id
 		WHERE p.status = 'published'
@@ -457,7 +458,7 @@ func CountBookmarkedPosts(db *sqlx.DB, userID int) (int, error) {
 	return n, err
 }
 
-// SearchPostsPage returns one page of search results.
+// SearchPostsPage returns one page of search results with reaction counts.
 func SearchPostsPage(db *sqlx.DB, query string, page int) ([]Post, error) {
 	var posts []Post
 	like := fmt.Sprintf("%%%s%%", query)
@@ -467,7 +468,8 @@ func SearchPostsPage(db *sqlx.DB, query string, page int) ([]Post, error) {
 			p.id, p.user_id, p.title, p.slug, p.body,
 			p.cover_image, p.status, p.created_at, p.updated_at,
 			u.username AS author_name,
-			0 AS reaction_count, 0 AS bookmark_count
+			(SELECT COUNT(*) FROM reactions r WHERE r.post_id = p.id) AS reaction_count,
+			0 AS bookmark_count
 		FROM posts p
 		JOIN users u ON u.id = p.user_id
 		WHERE p.status = 'published'
@@ -488,6 +490,65 @@ func CountSearchResults(db *sqlx.DB, query string) (int, error) {
 		  AND (p.title ILIKE $1 OR p.body ILIKE $1)
 	`, like)
 	return n, err
+}
+
+// -----------------------------------------------------------------------
+// Tag attachment
+// -----------------------------------------------------------------------
+
+// AttachTags fetches tags for a slice of posts in a single query and
+// attaches them to the correct post. Call this after any list query.
+//
+// Without this, tag pills never appear on list pages because the
+// standard SELECT queries can't populate []Tag slices directly.
+//
+// Django parallel: prefetch_related('tags') on a queryset.
+func AttachTags(db *sqlx.DB, posts []Post) error {
+	if len(posts) == 0 {
+		return nil
+	}
+
+	// Collect post IDs
+	ids := make([]interface{}, len(posts))
+	placeholders := ""
+	for i, p := range posts {
+		ids[i] = p.ID
+		if i > 0 {
+			placeholders += ","
+		}
+		placeholders += fmt.Sprintf("$%d", i+1)
+	}
+
+	// Single query fetches all tags for all posts in the slice
+	rows, err := db.Query(fmt.Sprintf(`
+		SELECT pt.post_id, t.id, t.name
+		FROM tags t
+		JOIN post_tags pt ON pt.tag_id = t.id
+		WHERE pt.post_id IN (%s)
+		ORDER BY pt.post_id, t.name
+	`, placeholders), ids...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	// Build a map of postID → []Tag
+	tagMap := make(map[int][]Tag)
+	for rows.Next() {
+		var postID int
+		var tag Tag
+		if err := rows.Scan(&postID, &tag.ID, &tag.Name); err != nil {
+			continue
+		}
+		tagMap[postID] = append(tagMap[postID], tag)
+	}
+
+	// Attach to the posts slice by reference
+	for i := range posts {
+		posts[i].Tags = tagMap[posts[i].ID]
+	}
+
+	return nil
 }
 
 // -----------------------------------------------------------------------

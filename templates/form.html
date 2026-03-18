@@ -15,6 +15,7 @@
 
 <form method="POST" enctype="multipart/form-data"
       style="display:flex; flex-direction:column; gap:1.5rem; max-width:720px;">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 
     <div>
         <label style="display:block; font-family:'JetBrains Mono',monospace; font-size:0.7rem;

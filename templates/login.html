@@ -20,6 +20,7 @@
     {{end}}
 
     <form method="POST" action="/login" style="display:flex; flex-direction:column; gap:1.25rem;">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 
         <div>
             <label style="display:block; font-family:'JetBrains Mono',monospace; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:0.5rem;">

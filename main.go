@@ -58,5 +58,8 @@ func main() {
 	mux.HandleFunc("/", handlers.NotFound) // catch-all — must be last
 
 	log.Printf("🚀 Server running at http://localhost:%s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, handlers.AuthMiddleware(mux)))
+	// Middleware chain (outermost runs first):
+	// CSRFMiddleware → AuthMiddleware → mux
+	handler := handlers.CSRFMiddleware(handlers.AuthMiddleware(mux))
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoBlog</title>
+    <title>{{if .PageTitle}}{{.PageTitle}} — GoBlog{{else}}GoBlog{{end}}</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -412,6 +412,10 @@
         .htmx-request .htmx-indicator,
         .htmx-request.htmx-indicator { opacity: 1; }
 
+        /* ── Settings name grid — stacks on small screens ─────────── */
+        .name-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+        @media (max-width: 480px) { .name-grid { grid-template-columns:1fr; } }
+
         /* ── Page fade-in ───────────────────────────────────────────── */
         main { animation: fadeIn 0.2s ease; }
         @keyframes fadeIn {
@@ -447,6 +451,7 @@
                         <a href="/new"        class="nav-link">Write</a>
                         <a href="/settings"   class="nav-link">Settings</a>
                         <form method="POST" action="/logout" style="margin:0; padding:0;">
+                            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
                             <button type="submit" class="nav-link">Logout</button>
                         </form>
                     {{else}}
