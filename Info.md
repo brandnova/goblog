@@ -93,168 +93,7 @@ To revert: remove `OBJ_ENDPOINT` from the environment panel and redeploy.
 ### Cloudflare R2 (if Leapcell storage becomes insufficient)
 
 Cloudflare R2 offers 10 GB free with zero egress fees. It is a drop-in
-replacement — only the endpoint and credentials in `storage.go` change.
-
----
-
-## Project Phases — Start to Launch
-
-### Phase 0 — Foundation ✅
-*The working skeleton. Auth, posts, basic UI.*
-
-- [x] Go project structure — `main.go`, `handlers/`, `models/`, `templates/`
-- [x] PostgreSQL connection via `sqlx` + `lib/pq`
-- [x] Auto schema creation on startup — no migration tool needed
-- [x] User registration and login with bcrypt password hashing
-- [x] Server-side sessions — UUID tokens in `sessions` table
-- [x] Session cookie — `HttpOnly`, `SameSite=Lax`
-- [x] `AuthMiddleware` — attaches user to every request context
-- [x] `RequireLogin` — per-route auth guard
-- [x] Posts — create, edit, delete with Markdown rendering
-- [x] Draft / Published status
-- [x] Unique slugs — `title-slug-uuid8` format, permanent after creation
-- [x] Base HTML layout — Playfair Display + Source Serif 4 + JetBrains Mono
-- [x] Tailwind CSS compiled locally via Node subdirectory
-- [x] Responsive mobile nav with hamburger menu
-- [x] Custom 404 page
-- [x] Leapcell deployment
-
----
-
-### Phase 1 — Multi-User Platform ✅
-*Every user has their own space. Discovery begins.*
-
-- [x] Profile pages at `/u/{username}` with bio and display name
-- [x] Post URLs scoped to author — `/u/{username}/{slug}`
-- [x] Settings page — display name, bio, email, split password form
-- [x] Dashboard — user's own posts with reaction + bookmark counts
-- [x] Tags — comma-separated, stored in `tags` + `post_tags` tables
-- [x] Tag filter pages at `/tag/{name}`
-- [x] Cover images — local disk (dev) / Leapcell Object Storage (prod)
-- [x] Read time estimation — word count ÷ 200 wpm
-- [x] Markdown rendering + plain-text excerpt stripping
-- [x] `AttachTags()` — single-query tag attachment for all list pages
-
----
-
-### Phase 2 — Interaction & Discovery ✅
-*Users engage with content. The platform feels alive.*
-
-- [x] Bookmarks — `bookmarks` table, HTMX toggle, reading list page
-- [x] Reactions (likes) — `reactions` table, HTMX toggle, count on all pages
-- [x] Live search — HTMX debounced, `renderPartial` bug fixed
-- [x] Infinite scroll pagination — index, profile, tag, bookmarks, search
-- [x] Flash messages — `?new=1` and `?saved=1` after post create/update
-- [x] Post updated timestamp on detail page
-- [x] Reaction counts on all list pages
-- [x] Tags rendering on all list pages
-
----
-
-### Phase 3 — Security & Correctness ✅
-*The platform is safe and reliable before it gets more users.*
-
-- [x] CSRF protection — double-submit cookie on all POST forms
-- [x] `CSRFMiddleware` in the request chain
-- [x] Session cleanup goroutine — purges expired rows every 24 hours
-- [x] Slug collision prevention — UUID suffix, slug never changes on edit
-- [x] Reaction/bookmark HTMX endpoints exempt from CSRF (SameSite=Lax)
-- [x] Dynamic page titles via `renderWithTitle()`
-- [x] Active nav link indicator — `.nav-link-active` class via `{{.Path}}`
-- [x] `hasPrefix` registered in `templateFuncs` for profile path matching
-- [x] Settings name grid — proper CSS class, no inline `<style>` tag
-- [x] `AttachTags()` called in Dashboard handler
-
----
-
-### Phase 4 — Content & Discovery 🔧 *current*
-*The platform becomes a place people want to read.*
-
-- [ ] **Comments** — `comments` table, HTMX partial, prepend on submit
-- [ ] **Related posts** — 3–5 by same author or overlapping tags at bottom
-  of post detail page; one query with `LIMIT 5`
-- [ ] **RSS feed** — `/feed.rss` via `encoding/xml`, no third-party lib
-- [ ] **Post reaction count on detail page** — the count is inside the
-  toggle button; add it also as a plain visible count in the meta row
-  for logged-out visitors
-- [ ] **Full-text search** — replace `ILIKE` with PostgreSQL `tsvector`
-  for relevance ranking, stemming, and phrase queries
-- [ ] **`air` live reload** — `go install github.com/air-verse/air@latest`;
-  `.air.toml` in project root; replaces manual `go run .`
-- [ ] **`chi` router** — replace stdlib mux when admin routes are added;
-  enables per-group middleware
-
----
-
-### Phase 5 — Social Layer
-*Users connect with each other. The platform has a network effect.*
-
-- [ ] **Follow system** — `follows` table (`follower_id`, `following_id`);
-  personalised feed at `/feed` showing posts from followed authors;
-  follow/unfollow button on profile pages
-- [ ] **Follower/following counts** on profile pages
-- [ ] **@username mentions** — in post bodies and comments; links to profile
-- [ ] **External share buttons** — Twitter/X and copy-link on post detail
-- [ ] **Post view counter** — simple increment on every detail page load;
-  shown on dashboard alongside reactions and bookmarks
-
----
-
-### Phase 6 — Platform Hardening
-*The platform is safe to open to the public.*
-
-- [ ] **Email verification on registration** — `verified` column on users;
-  token in `email_tokens` table; goroutine sends via Resend/Postmark;
-  unverified users can write drafts but cannot publish
-- [ ] **Rate limiting on login/register** — in-memory counter per IP,
-  5-minute window; no external dependency
-- [ ] **Input length validation** — server-side max lengths on title (200),
-  body (50 000), bio (300), comment (2 000); return 400 with field error
-- [ ] **In-app notifications** — `notifications` table; triggers for: new
-  reaction on your post, new comment on your post, new follower, @mention;
-  bell icon in nav with unread count badge; mark-all-read endpoint.
-  Delivered in real-time via a WebSocket channel backed by Redis pub/sub —
-  This also opens the door to making other parts of the platform real-time 
-  (live comment feeds, reaction count updates) by multiplexing over the same 
-  WebSocket connection.
-- [ ] **Report content** — users can flag posts or comments as spam or abuse;
-  flagged items appear in the admin queue
-
----
-
-### Phase 7 — Admin & Moderation
-*The platform owner can keep things healthy.*
-
-- [ ] **Admin panel** — `/admin` behind `role = "admin"` check on the user
-- [ ] **User management** — list all users, view profile, suspend/ban account
-- [ ] **Content moderation** — list flagged posts and comments; approve,
-  remove, or dismiss flags; remove any post or comment platform-wide
-- [ ] **Site settings** — set site name, tagline, registration open/closed,
-  maintenance mode; stored in a `site_settings` table
-- [ ] **Platform stats** — total users, posts, comments, reactions; daily
-  new signups; shown on admin dashboard
-- [ ] **Role system** — `role` column on users: `"user"` (default),
-  `"moderator"` (can remove content), `"admin"` (full access)
-
----
-
-### Phase 8 — Polish & Launch Readiness
-*Everything a real product needs before going public.*
-
-- [ ] **SEO meta tags** — Open Graph and Twitter Card tags on every page;
-  post detail page gets description from excerpt, image from cover
-- [ ] **Sitemap** — `/sitemap.xml` listing all published posts; helps search
-  engine indexing
-- [ ] **`robots.txt`** — allow all crawlers on public content; block `/admin`
-- [ ] **`chi` router** — migrate from stdlib mux for cleaner route groups
-- [ ] **Testing** — model-level tests with a test PostgreSQL database;
-  `go test ./...`; start with auth and post creation flows
-- [ ] **Error pages** — custom 403 and 500 pages matching the site design
-- [ ] **Graceful shutdown** — `os.Signal` listener calls `db.Close()` and
-  drains in-flight requests before exiting
-- [ ] **Structured logging** — replace `log.Printf` with `slog` (Go 1.21+)
-  for JSON-formatted logs that Leapcell's log panel can parse
-- [ ] **README** — setup instructions, env var reference, deployment guide
+replacement — only the endpoint and credentials in `handlers/storage.go` change.
 
 ---
 
@@ -263,8 +102,8 @@ replacement — only the endpoint and credentials in `storage.go` change.
 ### Request Flow
 ```
 Browser → CSRFMiddleware → AuthMiddleware → mux → handler → model → PostgreSQL
-                                                         ↓
-                                                    template → HTML → browser
+                                                        ↓
+                                                   template → HTML → browser
 ```
 
 ### Middleware Chain (outermost first)
@@ -280,49 +119,70 @@ Every `render()` / `renderWithTitle()` call injects:
     User      *User   // nil if logged out
     CSRFToken string  // from CSRF cookie
     PageTitle string  // empty → "GoBlog"; set → "Title — GoBlog"
-    Path      string  // r.URL.Path for nav active state
+    Path      string  // r.URL.Path — for nav active state
+    UserPath  string  // "/u/{username}" — exact match for profile nav link
 }
 ```
 
 ### File Layout
 ```
 goblog/
-├── main.go              — entry point, routes, middleware chain
-├── db.go                — DB init, schema, migrations, session cleanup
-├── storage.go           — object storage toggle (local vs Leapcell S3)
+├── main.go                   — entry point, routes, middleware chain
+├── db.go                     — DB init, schema, migrations, session cleanup
+├── go.mod / go.sum
+├── .air.toml                 — Air live reload config (go install air@latest)
+├── .env.example
+├── .gitignore
+├── Info.md
+├── README.md
+├── LICENSE
 ├── handlers/
-│   ├── helpers.go       — render(), renderWithTitle(), renderPartial(), templateFuncs
-│   ├── middleware.go    — CSRF, Auth, RequireLogin, sessions
-│   ├── auth.go          — Register, Login, Logout, Settings
-│   └── posts.go         — all post/tag/search/bookmark/reaction handlers
+│   ├── auth.go               — Register, Login, Logout, Settings handlers
+│   ├── helpers.go            — render(), renderWithTitle(), renderPartial(), templateFuncs
+│   ├── middleware.go         — CSRFMiddleware, AuthMiddleware, RequireLogin, sessions
+│   ├── posts.go              — all post/tag/search/bookmark/reaction handlers
+│   └── storage.go            — object storage toggle (local disk vs Leapcell S3)
 ├── models/
-│   ├── user.go          — User struct, CRUD, auth helpers
-│   └── post.go          — Post/Tag structs, all queries, AttachTags, pagination
-├── templates/
-│   ├── base.html        — layout, CSS tokens, nav, CSRF in forms
-│   ├── index.html       — homepage with live search
-│   ├── post.html        — post detail with reactions, bookmarks, flash
-│   ├── form.html        — create/edit post form
-│   ├── dashboard.html   — author dashboard
-│   ├── profile.html     — public profile
-│   ├── bookmarks.html   — reading list
-│   ├── tag.html         — tag-filtered posts
-│   ├── settings.html    — profile + password forms
-│   ├── login.html
-│   ├── register.html
-│   ├── 404.html
-│   └── partials/
-│       ├── post_list.html      — infinite scroll post rows
-│       └── search_results.html — HTMX search dropdown
-└── static/
-    ├── css/tailwind.css
-    └── js/htmx.min.js
+│   ├── post.go               — Post/Tag structs, all queries, AttachTags, pagination
+│   └── user.go               — User struct, CRUD, auth helpers
+├── static/
+│   ├── css/
+│   │   ├── goblog.css        — all custom styles (extracted from base.html)
+│   │   └── tailwind.css      — compiled Tailwind output
+│   └── js/
+│       └── htmx.min.js
+├── tailwind/                 — Tailwind compilation toolchain (Node, not served)
+│   ├── src/styles.css
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   ├── package.json
+│   └── package-lock.json
+└── templates/
+    ├── base.html             — layout, nav, CSRF forms, footer
+    ├── index.html            — homepage with live search + infinite scroll
+    ├── post.html             — post detail with reactions, bookmarks, flash
+    ├── form.html             — create/edit post form with tag counter
+    ├── dashboard.html        — author dashboard with metrics
+    ├── profile.html          — public profile page
+    ├── bookmarks.html        — reading list
+    ├── tag.html              — tag-filtered post listing
+    ├── settings.html         — profile + password forms
+    ├── login.html
+    ├── register.html
+    ├── 404.html
+    └── partials/
+        ├── post_list.html    — shared infinite scroll post rows + sentinel
+        └── search_results.html — HTMX search results dropdown
 ```
 
 ### Database Schema
+
+**Current tables:**
 ```
-users         — id, username, email, password_hash, first_name, last_name, bio, created_at
-posts         — id, user_id, title, slug, body, cover_image, status, created_at, updated_at
+users         — id, username, email, password_hash, first_name, last_name,
+                bio, created_at
+posts         — id, user_id, title, slug, body, cover_image, status,
+                created_at, updated_at
 tags          — id, name (unique)
 post_tags     — post_id, tag_id (composite PK, CASCADE on delete)
 sessions      — token (PK), user_id, expires_at
@@ -330,13 +190,28 @@ bookmarks     — user_id, post_id (composite PK)
 reactions     — user_id, post_id (composite PK)
 ```
 
-Upcoming tables (Phase 4+):
+**Phase 3.5 additions:**
+```
+users         — + avatar_url, location, website, twitter, github, instagram
+site_settings — key (PK), value
+```
+
+**Phase 4+ additions:**
 ```
 comments      — id, post_id, user_id, body, created_at
+```
+
+**Phase 5+ additions:**
+```
 follows       — follower_id, following_id (composite PK)
-notifications — id, user_id, type, actor_id, post_id, comment_id, read, created_at
+post_views    — post_id, ip_hash, viewed_at (dedup within 24h)
+```
+
+**Phase 6+ additions:**
+```
+notifications — id, user_id, type, actor_id, post_id, comment_id,
+                read, created_at
 email_tokens  — id, user_id, token, expires_at
-site_settings — key, value
 ```
 
 ---
@@ -365,7 +240,8 @@ site_settings — key, value
 | `mark_safe()` | `template.HTML(...)` |
 | Custom template filter | `template.FuncMap` |
 | `python-decouple` | `godotenv` + `os.Getenv()` |
-| `django-storages` | `storage.go` with env-var toggle |
+| `django-storages` | `handlers/storage.go` with env-var toggle |
 | `paginator.page(n)` | `LIMIT $1 OFFSET $2` + HTMX infinite scroll |
 | `django.contrib.admin` | custom `/admin` (Phase 7) |
 | `signals.post_save` | goroutine launched from handler |
+| `SiteConfig` / `django-constance` | `site_settings` table + `GetSetting()` helper |

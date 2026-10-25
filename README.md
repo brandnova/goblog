@@ -37,40 +37,52 @@ explore Go web development from a Django background.
 
 ```
 goblog/
-├── main.go                  # Entry point, routes, server
-├── db.go                    # Database init and schema
-├── go.mod
-├── go.sum
-├── .env                     # Local environment variables (git-ignored)
+├── main.go                   — entry point, routes, middleware chain
+├── db.go                     — DB init, schema, migrations, session cleanup
+├── go.mod / go.sum
+├── .air.toml                 — Air live reload config (go install air@latest)
+├── .env.example
+├── .gitignore
+├── Info.md
+├── README.md
+├── LICENSE
 ├── handlers/
-│   ├── helpers.go           # render(), renderPartial(), DB init, template funcs
-│   ├── middleware.go        # AuthMiddleware, RequireLogin, session management
-│   ├── auth.go              # Register, Login, Logout handlers
-│   └── posts.go             # All post-related handlers
+│   ├── auth.go               — Register, Login, Logout, Settings handlers
+│   ├── helpers.go            — render(), renderWithTitle(), renderPartial(), templateFuncs
+│   ├── middleware.go         — CSRFMiddleware, AuthMiddleware, RequireLogin, sessions
+│   ├── posts.go              — all post/tag/search/bookmark/reaction handlers
+│   └── storage.go            — object storage toggle (local disk vs Leapcell S3)
 ├── models/
-│   ├── user.go              # User model, password helpers
-│   └── post.go              # Post/Tag models, all queries, markdown helpers
-├── templates/
-│   ├── base.html            # Base layout (masthead, nav, footer)
-│   ├── index.html           # Homepage — post list + live search
-│   ├── post.html            # Single post detail
-│   ├── form.html            # Create / edit post form
-│   ├── dashboard.html       # Author's post management page
-│   ├── tag.html             # Posts filtered by tag
-│   ├── login.html
-│   ├── register.html
-│   └── partials/
-│       └── search_results.html   # HTMX fragment
+│   ├── post.go               — Post/Tag structs, all queries, AttachTags, pagination
+│   └── user.go               — User struct, CRUD, auth helpers
 ├── static/
 │   ├── css/
-│   │   └── tailwind.css     # Compiled by Tailwind CLI
-│   ├── js/
-│   │   └── htmx.min.js
-│   └── uploads/             # Cover image uploads (git-ignored)
-└── tailwind/
-    ├── src/styles.css
-    ├── tailwind.config.js
-    └── package.json
+│   │   ├── goblog.css        — all custom styles (extracted from base.html)
+│   │   └── tailwind.css      — compiled Tailwind output
+│   └── js/
+│       └── htmx.min.js
+├── tailwind/                 — Tailwind compilation toolchain (Node, not served)
+│   ├── src/styles.css
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   ├── package.json
+│   └── package-lock.json
+└── templates/
+    ├── base.html             — layout, nav, CSRF forms, footer
+    ├── index.html            — homepage with live search + infinite scroll
+    ├── post.html             — post detail with reactions, bookmarks, flash
+    ├── form.html             — create/edit post form with tag counter
+    ├── dashboard.html        — author dashboard with metrics
+    ├── profile.html          — public profile page
+    ├── bookmarks.html        — reading list
+    ├── tag.html              — tag-filtered post listing
+    ├── settings.html         — profile + password forms
+    ├── login.html
+    ├── register.html
+    ├── 404.html
+    └── partials/
+        ├── post_list.html    — shared infinite scroll post rows + sentinel
+        └── search_results.html — HTMX search results dropdown
 ```
 
 ## Getting Started

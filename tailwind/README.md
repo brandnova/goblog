@@ -93,6 +93,7 @@ module.exports = {
 #### **8. Configure PurgeCSS (Optional but Recommended)**
 In your `tailwind.config.js`, specify the paths to your Django templates and static files to remove unused styles in production:
 ```javascript
+/** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
     '../templates/**/*.html',
@@ -101,7 +102,9 @@ module.exports = {
   theme: {
     extend: {},
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
 };
 ```
 
